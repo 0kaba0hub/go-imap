@@ -97,6 +97,11 @@ func (c *Conn) availableCaps() []imap.Cap {
 			imap.CapQResync,   // RFC 7162 §4 — see enable.go, expunge.go, select.go
 		})
 
+		// METADATA capability
+		if _, ok := c.session.(SessionMetadata); ok && available.Has(imap.CapMetadata) {
+			caps = append(caps, imap.CapMetadata)
+		}
+
 		if appendLimitSession, ok := c.session.(SessionAppendLimit); ok {
 			limit := appendLimitSession.AppendLimit()
 			caps = append(caps, imap.Cap(fmt.Sprintf("APPENDLIMIT=%d", limit)))
