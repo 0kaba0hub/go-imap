@@ -1,0 +1,209 @@
+name: Sync upstream emersion/go-imap
+
+# Keeps this fork in step with emersion/go-imap:
+#   1. Fast-forwards `v2` (clean mirror) to upstream's `v2` tip daily.
+#   2. Rebases `yarilo-patches` (= v2 + cherry-pick of PR #756 + this workflow)
+#      onto the new `v2`. On clean rebase: force-push with lease.
+#      On conflict: open an issue tagged `upstream-conflict` so we notice.
+#   3. Polls upstream PR #756 — when it lands, opens an issue reminding us
+#      to drop the cherry-pick and the yarilo `go.mod` replace directive.
+#
+# Triggered nightly (06:00 UTC) and on-demand via workflow_dispatch.
+# All ops run inside this fork; no upstream write access needed.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  mirror-v2:
+    name: Fast-forward v2 from upstream
+    runs-on: ubuntu-latest
+    outputs:
+      advanced: ${{ steps.advance.outputs.advanced }}
+      old_sha: ${{ steps.advance.outputs.old_sha }}
+      new_sha: ${{ steps.advance.outputs.new_sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: v2
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name 'yarilo-sync-bot'
+          git config user.email 'yarilo-sync-bot@users.noreply.github.com'
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/emersion/go-imap.git
+          git fetch upstream v2 --tags
+
+      - name: Detect divergence and advance v2
+        id: advance
+        run: |
+          OLD=$(git rev-parse HEAD)
+          UPSTREAM=$(git rev-parse upstream/v2)
+          echo "old_sha=$OLD" >> "$GITHUB_OUTPUT"
+          echo "new_sha=$UPSTREAM" >> "$GITHUB_OUTPUT"
+          if [ "$OLD" = "$UPSTREAM" ]; then
+            echo "advanced=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::v2 already at upstream tip ($OLD)"
+            exit 0
+          fi
+          # Refuse if our v2 has commits upstream does not (mirror invariant).
+          if ! git merge-base --is-ancestor HEAD upstream/v2; then
+            echo "::error::v2 mirror has diverged from upstream/v2 — manual fix required"
+            exit 1
+          fi
+          AHEAD=$(git rev-list --count "$OLD..$UPSTREAM")
+          echo "::notice::Fast-forwarding v2 by $AHEAD commit(s): $OLD -> $UPSTREAM"
+          git merge --ff-only upstream/v2
+          git push origin v2
+          echo "advanced=true" >> "$GITHUB_OUTPUT"
+
+  rebase-patches:
+    name: Rebase yarilo-patches onto v2
+    needs: mirror-v2
+    if: needs.mirror-v2.outputs.advanced == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: yarilo-patches
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name 'yarilo-sync-bot'
+          git config user.email 'yarilo-sync-bot@users.noreply.github.com'
+
+      - name: Fetch updated v2
+        run: git fetch origin v2
+
+      - name: Attempt rebase
+        id: rebase
+        run: |
+          if git merge-base --is-ancestor origin/v2 HEAD; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::yarilo-patches already on top of v2 — no rebase needed"
+            exit 0
+          fi
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+          if git -c rerere.enabled=true rebase origin/v2; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            git rebase --abort || true
+          fi
+
+      - name: Push rebased branch
+        if: steps.rebase.outputs.needed == 'true' && steps.rebase.outputs.ok == 'true'
+        run: |
+          git push --force-with-lease origin yarilo-patches
+          echo "::notice::yarilo-patches rebased and force-pushed"
+
+      - name: Open conflict issue
+        if: steps.rebase.outputs.needed == 'true' && steps.rebase.outputs.ok == 'false'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const oldSha = '${{ needs.mirror-v2.outputs.old_sha }}';
+            const newSha = '${{ needs.mirror-v2.outputs.new_sha }}';
+            const title = `upstream-sync: yarilo-patches rebase conflict (v2 ${newSha.slice(0,7)})`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-conflict',
+            });
+            if (existing.data.some(i => i.title.startsWith('upstream-sync: yarilo-patches rebase conflict'))) {
+              core.info('Conflict issue already open — skipping');
+              return;
+            }
+            const compareUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/compare/${oldSha}...${newSha}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              labels: ['upstream-conflict', 'automation'],
+              body: [
+                '**Automated rebase failed.**',
+                '',
+                `\`v2\` advanced from \`${oldSha}\` to \`${newSha}\` ([compare](${compareUrl})), but rebasing \`yarilo-patches\` on top produced conflicts.`,
+                '',
+                'Manual steps:',
+                '```',
+                'git fetch origin',
+                'git checkout yarilo-patches',
+                'git rebase origin/v2',
+                '# resolve conflicts, then:',
+                'git push --force-with-lease origin yarilo-patches',
+                '```',
+                '',
+                'After resolving, remember to bump the yarilo `go.mod` replace pseudo-version to the new tip.',
+              ].join('\n'),
+            });
+
+  watch-pr-756:
+    name: Watch upstream PR #756 (QRESYNC)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR status
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: 'emersion',
+              repo: 'go-imap',
+              pull_number: 756,
+            });
+            core.info(`PR #756 state=${pr.data.state} merged=${pr.data.merged}`);
+            if (!pr.data.merged && pr.data.state !== 'closed') {
+              core.info('PR still open — no action');
+              return;
+            }
+            const marker = pr.data.merged ? 'merged' : 'closed-unmerged';
+            const issueTitle = `upstream-sync: PR #756 ${marker} — drop our cherry-pick`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              labels: 'upstream-pr-756',
+              per_page: 50,
+            });
+            if (existing.data.some(i => i.title === issueTitle)) {
+              core.info('Tracking issue already exists — skipping');
+              return;
+            }
+            const body = pr.data.merged
+              ? [
+                  `Upstream **emersion/go-imap#756** was merged (commit \`${pr.data.merge_commit_sha}\`).`,
+                  '',
+                  'Action items:',
+                  '- [ ] Bump v2 mirror past the merge commit (this workflow does it on next run).',
+                  '- [ ] Drop the cherry-pick from `yarilo-patches` (or re-cut the branch from v2 if no other patches remain).',
+                  '- [ ] Update `YARILO_PATCHES.md` to reflect PR #756 as merged.',
+                  '- [ ] In `0kaba0hub/yarilo` `go.mod`, repoint `replace` to the upstream v2 commit (or drop entirely if upstream cuts a `beta.9` tag we can use).',
+                ].join('\n')
+              : [
+                  'Upstream **emersion/go-imap#756** was **closed without merge**.',
+                  '',
+                  'We need a long-term plan: keep maintaining the cherry-pick on `yarilo-patches`, or pursue an alternative approach.',
+                ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: issueTitle,
+              labels: ['upstream-pr-756', 'automation'],
+              body,
+            });
