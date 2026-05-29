@@ -35,7 +35,18 @@ the `yarilo-patches` branch.
 
 ## Tracking upstream
 
-When `emersion/go-imap` advances:
+Automated by [`.github/workflows/sync-upstream.yml`](.github/workflows/sync-upstream.yml):
+
+- Runs daily at 06:00 UTC (and on `workflow_dispatch`).
+- Fast-forwards `v2` to `emersion/go-imap@v2`.
+- Rebases `yarilo-patches` onto the new `v2` and force-pushes with lease.
+- On rebase conflict: opens an issue labelled `upstream-conflict` so we
+  notice instead of silently drifting.
+- Polls upstream PR #756 every run — when it lands (or is closed without
+  merge), opens an issue labelled `upstream-pr-756` with next-step
+  checklist.
+
+Manual fallback when the workflow has to be bypassed:
 
 ```sh
 git fetch upstream
