@@ -7,27 +7,26 @@ verbatim and must never carry downstream changes.
 
 ## Why this fork exists
 
-[yarilo](https://github.com/0kaba0hub/yarilo) needs IMAP server-side
-[CONDSTORE / QRESYNC](https://www.rfc-editor.org/rfc/rfc7162.html)
-support. The upstream library does not ship it yet — open work:
+[yarilo](https://github.com/0kaba0hub/yarilo) needs upstream features
+that are not yet merged. Each unmerged feature is tracked as a
+cherry-pick on top of `v2`. When upstream merges a PR, the
+corresponding cherry-pick is dropped.
 
-- [emersion/go-imap#756](https://github.com/emersion/go-imap/pull/756) —
-  parisxmas, draft, MERGEABLE, comprehensive server + client + protocol
-  types. Production-tested in
-  [OxiMail](https://github.com/parisxmas/OxiMail).
-- [emersion/go-imap#690](https://github.com/emersion/go-imap/pull/690) —
-  dejanstrbac, open, CONFLICTING, has emersion's "LGTM apart from
-  comments". Older, server only.
+| Tracked PR | Feature | RFCs | Status |
+|:---|:---|:---|:---|
+| [emersion/go-imap#756](https://github.com/emersion/go-imap/pull/756) — parisxmas | Server-side CONDSTORE + QRESYNC | [RFC 7162](https://www.rfc-editor.org/rfc/rfc7162.html) | open, mergeable, production-tested in [OxiMail](https://github.com/parisxmas/OxiMail) |
+| [emersion/go-imap#717](https://github.com/emersion/go-imap/pull/717) — migadu | Server-side METADATA | [RFC 5464](https://www.rfc-editor.org/rfc/rfc5464.html) | open, mergeable |
 
-We picked #756 (newer, broader, MERGEABLE) and applied it as a single
-cherry-pick on top of `v2`.
+Considered but not picked:
+[emersion/go-imap#690](https://github.com/emersion/go-imap/pull/690) —
+dejanstrbac CONDSTORE — older, conflicting, superseded by #756.
 
 ## Branch layout
 
 | Branch | Purpose | Contains |
 |:---|:---|:---|
 | `v2` | Upstream mirror | Exactly `emersion/go-imap` `v2`. No downstream commits. |
-| `yarilo-patches` | Library yarilo pins | `v2` + cherry-picked PR #756. This file. |
+| `yarilo-patches` | Library yarilo pins | `v2` + cherry-picks listed above. This file. |
 
 `yarilo-patches` is the default branch on GitHub so visitors land on
 this README. yarilo's `go.mod` uses a `replace` directive pointing at
@@ -42,9 +41,9 @@ Automated by [`.github/workflows/sync-upstream.yml`](.github/workflows/sync-upst
 - Rebases `yarilo-patches` onto the new `v2` and force-pushes with lease.
 - On rebase conflict: opens an issue labelled `upstream-conflict` so we
   notice instead of silently drifting.
-- Polls upstream PR #756 every run — when it lands (or is closed without
-  merge), opens an issue labelled `upstream-pr-756` with next-step
-  checklist.
+- Polls every tracked upstream PR each run — when one lands (or is
+  closed without merge), opens an issue labelled `upstream-pr-<number>`
+  with the next-step checklist.
 
 Manual fallback when the workflow has to be bypassed:
 
@@ -55,26 +54,27 @@ git merge --ff-only upstream/v2
 git push origin v2
 
 git checkout yarilo-patches
-git rebase v2          # re-applies the PR #756 cherry-pick on the new base
+git rebase v2          # re-applies the cherry-picks on the new base
 # resolve conflicts if upstream touched the same files
 git push --force-with-lease origin yarilo-patches
 ```
 
-When PR #756 (or #690) lands upstream:
+When a tracked PR lands upstream:
 
-1. Update yarilo's `go.mod` to drop the `replace` directive and bump
-   `github.com/emersion/go-imap/v2` to the version containing the
-   merged PR.
-2. Delete `yarilo-patches` from this fork (or leave it as historical
-   reference — it costs nothing).
+1. Drop its cherry-pick(s) from `yarilo-patches`. If no other patches
+   remain on the branch, retire the branch entirely.
+2. Update yarilo's `go.mod` to bump `github.com/emersion/go-imap/v2` to
+   the version containing the merged PR. If no other patches remain,
+   also drop the `replace` directive.
 3. Keep the fork itself; the next time we need a patch the workflow
    repeats.
 
-## Pinned commit (current)
+## Pinned commits (current)
 
-Cherry-picked from `parisxmas/go-imap` branch `condstore-qresync`,
-upstream PR #756, commit `4b395c2` ("imapserver: add CONDSTORE +
-QRESYNC support").
+| Source | Cherry-picked commits | Topic |
+|:---|:---|:---|
+| `parisxmas/go-imap` PR #756 | `4b395c2` | CONDSTORE + QRESYNC server support |
+| `migadu/go-imap` PR #717 | `3dbbdb9`, `bfa51c1`, `881dd3c`, `6fe3521` | METADATA RFC 5464 server support + fixes |
 
 ## yarilo's go.mod replace
 

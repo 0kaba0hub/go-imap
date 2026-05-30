@@ -154,31 +154,43 @@ jobs:
               ].join('\n'),
             });
 
-  watch-pr-756:
-    name: Watch upstream PR #756 (QRESYNC)
+  watch-prs:
+    name: Watch upstream PRs (${{ matrix.pr.number }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pr:
+          - { number: 756, topic: "CONDSTORE + QRESYNC" }
+          - { number: 717, topic: "METADATA RFC 5464" }
     steps:
-      - name: Check PR status
+      - name: Check PR ${{ matrix.pr.number }} status
         uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ matrix.pr.number }}
+          PR_TOPIC: ${{ matrix.pr.topic }}
         with:
           script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const prTopic = process.env.PR_TOPIC;
+            const label = `upstream-pr-${prNumber}`;
             const pr = await github.rest.pulls.get({
               owner: 'emersion',
               repo: 'go-imap',
-              pull_number: 756,
+              pull_number: prNumber,
             });
-            core.info(`PR #756 state=${pr.data.state} merged=${pr.data.merged}`);
+            core.info(`PR #${prNumber} (${prTopic}) state=${pr.data.state} merged=${pr.data.merged}`);
             if (!pr.data.merged && pr.data.state !== 'closed') {
               core.info('PR still open — no action');
               return;
             }
             const marker = pr.data.merged ? 'merged' : 'closed-unmerged';
-            const issueTitle = `upstream-sync: PR #756 ${marker} — drop our cherry-pick`;
+            const issueTitle = `upstream-sync: PR #${prNumber} ${marker} — drop our cherry-pick`;
             const existing = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'all',
-              labels: 'upstream-pr-756',
+              labels: label,
               per_page: 50,
             });
             if (existing.data.some(i => i.title === issueTitle)) {
@@ -187,16 +199,16 @@ jobs:
             }
             const body = pr.data.merged
               ? [
-                  `Upstream **emersion/go-imap#756** was merged (commit \`${pr.data.merge_commit_sha}\`).`,
+                  `Upstream **emersion/go-imap#${prNumber}** (${prTopic}) was merged (commit \`${pr.data.merge_commit_sha}\`).`,
                   '',
                   'Action items:',
                   '- [ ] Bump v2 mirror past the merge commit (this workflow does it on next run).',
-                  '- [ ] Drop the cherry-pick from `yarilo-patches` (or re-cut the branch from v2 if no other patches remain).',
-                  '- [ ] Update `YARILO_PATCHES.md` to reflect PR #756 as merged.',
-                  '- [ ] In `0kaba0hub/yarilo` `go.mod`, repoint `replace` to the upstream v2 commit (or drop entirely if upstream cuts a `beta.9` tag we can use).',
+                  `- [ ] Drop PR #${prNumber}'s cherry-pick(s) from \`yarilo-patches\` (or re-cut the branch from v2 if no other patches remain).`,
+                  '- [ ] Update `YARILO_PATCHES.md` to reflect this PR as merged.',
+                  '- [ ] In `0kaba0hub/yarilo` `go.mod`, repoint `replace` to the upstream v2 commit (or drop entirely if no other patches remain and upstream cuts a tag we can use).',
                 ].join('\n')
               : [
-                  'Upstream **emersion/go-imap#756** was **closed without merge**.',
+                  `Upstream **emersion/go-imap#${prNumber}** (${prTopic}) was **closed without merge**.`,
                   '',
                   'We need a long-term plan: keep maintaining the cherry-pick on `yarilo-patches`, or pursue an alternative approach.',
                 ].join('\n');
@@ -204,6 +216,6 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: issueTitle,
-              labels: ['upstream-pr-756', 'automation'],
+              labels: [label, 'automation'],
               body,
             });
