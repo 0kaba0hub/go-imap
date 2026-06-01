@@ -16,6 +16,7 @@ corresponding cherry-pick is dropped.
 |:---|:---|:---|:---|
 | [emersion/go-imap#756](https://github.com/emersion/go-imap/pull/756) — parisxmas | Server-side CONDSTORE + QRESYNC | [RFC 7162](https://www.rfc-editor.org/rfc/rfc7162.html) | open, mergeable, production-tested in [OxiMail](https://github.com/parisxmas/OxiMail) |
 | [emersion/go-imap#717](https://github.com/emersion/go-imap/pull/717) — migadu | Server-side METADATA | [RFC 5464](https://www.rfc-editor.org/rfc/rfc5464.html) | open, mergeable |
+| [emersion/go-imap#730](https://github.com/emersion/go-imap/pull/730) — migadu | Server-side ACL | [RFC 4314](https://www.rfc-editor.org/rfc/rfc4314.html) | open, mergeable |
 
 Considered but not picked:
 [emersion/go-imap#690](https://github.com/emersion/go-imap/pull/690) —
@@ -75,6 +76,7 @@ When a tracked PR lands upstream:
 |:---|:---|:---|
 | `parisxmas/go-imap` PR #756 | `4b395c2` | CONDSTORE + QRESYNC server support |
 | `migadu/go-imap` PR #717 | `3dbbdb9`, `bfa51c1`, `881dd3c`, `6fe3521` | METADATA RFC 5464 server support + fixes |
+| `migadu/go-imap` PR #730 | `5eb99da`, `284f43f`, `76f65c7` | ACL RFC 4314 server support + tests + obsolete-right back-compat |
 
 ## yarilo's go.mod replace
 
