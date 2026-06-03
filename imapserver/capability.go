@@ -107,6 +107,11 @@ func (c *Conn) availableCaps() []imap.Cap {
 			caps = append(caps, imap.Cap("ACL"))
 		}
 
+		// QUOTA capability — RFC 9208
+		if _, ok := c.session.(SessionQuota); ok {
+			caps = append(caps, imap.Cap("QUOTA"))
+		}
+
 		if appendLimitSession, ok := c.session.(SessionAppendLimit); ok {
 			limit := appendLimitSession.AppendLimit()
 			caps = append(caps, imap.Cap(fmt.Sprintf("APPENDLIMIT=%d", limit)))
