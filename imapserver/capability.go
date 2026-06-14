@@ -103,13 +103,13 @@ func (c *Conn) availableCaps() []imap.Cap {
 		}
 
 		// ACL capability — RFC 4314
-		if _, ok := c.session.(SessionACL); ok {
-			caps = append(caps, imap.Cap("ACL"))
+		if _, ok := c.session.(SessionACL); ok && available.Has(imap.CapACL) {
+			caps = append(caps, imap.CapACL)
 		}
 
 		// QUOTA capability — RFC 9208
-		if _, ok := c.session.(SessionQuota); ok {
-			caps = append(caps, imap.Cap("QUOTA"))
+		if _, ok := c.session.(SessionQuota); ok && available.Has(imap.CapQuota) {
+			caps = append(caps, imap.CapQuota)
 		}
 
 		if appendLimitSession, ok := c.session.(SessionAppendLimit); ok {
