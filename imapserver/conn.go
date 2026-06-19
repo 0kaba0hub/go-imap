@@ -214,21 +214,6 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 		name = "UID " + strings.ToUpper(subName)
 	}
 
-	// Deliver any pending expunge notifications before commands that
-	// suppress post-command expunge delivery (RFC 3501 §7.4.1). Without
-	// this, a sequence of FETCH → FETCH → FETCH never delivers expunges,
-	// leaving clients with stale sequence→UID mappings when the FETCH
-	// response is constructed.
-	if c.state == imap.ConnStateSelected {
-		switch name {
-		case "FETCH", "UID FETCH", "STORE", "UID STORE", "SEARCH", "UID SEARCH":
-			pw := &UpdateWriter{conn: c, allowExpunge: true}
-			if err := c.session.Poll(pw, true); err != nil {
-				return err
-			}
-		}
-	}
-
 	// TODO: handle multiple commands concurrently
 	sendOK := true
 	var err error
@@ -359,7 +344,17 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 			Text: fmt.Sprintf("%v completed", name),
 		}
 	}
-	return c.writeStatusResp(tag, resp)
+	if err := c.writeStatusResp(tag, resp); err != nil {
+		return err
+	}
+	// For commands that suppress expunge delivery during processing, send
+	// any pending expunges now — after the tagged OK the client is between
+	// commands and expunges are safe to deliver (RFC 3501 §7.4.1).
+	switch name {
+	case "FETCH", "UID FETCH", "STORE", "UID STORE", "SEARCH", "UID SEARCH":
+		return c.pollExpunge()
+	}
+	return nil
 }
 
 func (c *Conn) handleNoop(dec *imapwire.Decoder) error {
@@ -522,6 +517,18 @@ func (c *Conn) poll(cmd string) error {
 
 	w := &UpdateWriter{conn: c, allowExpunge: allowExpunge}
 	return c.session.Poll(w, allowExpunge)
+}
+
+// pollExpunge delivers any pending expunge notifications with allowExpunge=true.
+// Called after the tagged OK for commands that suppress expunge delivery during
+// processing (FETCH, STORE, SEARCH) — at that point the client is between
+// commands and expunges are safe (RFC 3501 §7.4.1).
+func (c *Conn) pollExpunge() error {
+	if c.state != imap.ConnStateSelected {
+		return nil
+	}
+	w := &UpdateWriter{conn: c, allowExpunge: true}
+	return c.session.Poll(w, true)
 }
 
 type responseEncoder struct {
