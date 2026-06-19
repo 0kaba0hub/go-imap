@@ -347,15 +347,14 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 	if err := c.writeStatusResp(tag, resp); err != nil {
 		return err
 	}
-	// For commands that suppress expunge delivery during processing, send
-	// any pending expunges now — after the tagged OK the client is between
-	// commands and expunges are safe to deliver (RFC 3501 §7.4.1).
+	// After tagged OK the client is between commands — flush any expunges
+	// that were suppressed during processing (RFC 3501 §7.4.1).
+	// Skip commands that already delivered expunges pre-OK.
 	switch name {
-	case "FETCH", "UID FETCH", "STORE", "UID STORE", "SEARCH", "UID SEARCH",
-		"STATUS", "LIST", "LSUB", "SELECT", "EXAMINE":
-		return c.pollExpunge()
+	case "EXPUNGE", "UID EXPUNGE", "CLOSE", "UNSELECT":
+		return nil
 	}
-	return nil
+	return c.pollExpunge()
 }
 
 func (c *Conn) handleNoop(dec *imapwire.Decoder) error {
@@ -510,10 +509,14 @@ func (c *Conn) poll(cmd string) error {
 		return nil
 	}
 
-	allowExpunge := true
+	// Expunge is safe only for commands that explicitly act on the message
+	// set (EXPUNGE, UID EXPUNGE, CLOSE, UNSELECT). Every other command runs
+	// with allowExpunge=false; pending expunges are flushed after the tagged
+	// OK via pollExpunge(), at which point the client is between commands.
+	allowExpunge := false
 	switch cmd {
-	case "FETCH", "STORE", "SEARCH", "STATUS", "LIST", "LSUB", "SELECT", "EXAMINE":
-		allowExpunge = false
+	case "EXPUNGE", "UID EXPUNGE", "CLOSE", "UNSELECT":
+		allowExpunge = true
 	}
 
 	w := &UpdateWriter{conn: c, allowExpunge: allowExpunge}
