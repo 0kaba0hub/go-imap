@@ -77,7 +77,7 @@ When a tracked PR lands upstream:
 | `parisxmas/go-imap` PR #756 | `4b395c2` | CONDSTORE + QRESYNC server support |
 | `migadu/go-imap` PR #717 | `3dbbdb9`, `bfa51c1`, `881dd3c`, `6fe3521` | METADATA RFC 5464 server support + fixes |
 | `migadu/go-imap` PR #730 | `5eb99da`, `284f43f`, `76f65c7` | ACL RFC 4314 server support + tests + obsolete-right back-compat |
-| yarilo original | (this branch HEAD) | Suppress expunge delivery before tagged OK for FETCH/STORE/SEARCH/STATUS/LIST/LSUB; deliver after OK via pollExpunge (fix #314) |
+| yarilo original | (this branch HEAD) | Suppress expunge delivery before tagged OK for FETCH/STORE/SEARCH/STATUS/LIST/LSUB/SELECT/EXAMINE; deliver after OK via pollExpunge (fix #314) |
 
 ## yarilo's go.mod replace
 
