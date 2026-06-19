@@ -351,7 +351,8 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 	// any pending expunges now — after the tagged OK the client is between
 	// commands and expunges are safe to deliver (RFC 3501 §7.4.1).
 	switch name {
-	case "FETCH", "UID FETCH", "STORE", "UID STORE", "SEARCH", "UID SEARCH":
+	case "FETCH", "UID FETCH", "STORE", "UID STORE", "SEARCH", "UID SEARCH",
+		"STATUS", "LIST", "LSUB":
 		return c.pollExpunge()
 	}
 	return nil
@@ -511,7 +512,7 @@ func (c *Conn) poll(cmd string) error {
 
 	allowExpunge := true
 	switch cmd {
-	case "FETCH", "STORE", "SEARCH":
+	case "FETCH", "STORE", "SEARCH", "STATUS", "LIST", "LSUB":
 		allowExpunge = false
 	}
 
