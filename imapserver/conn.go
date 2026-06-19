@@ -499,13 +499,15 @@ func (c *Conn) poll(cmd string) error {
 		return nil
 	}
 
-	// SELECT and EXAMINE suppress expunge: the client has not yet received
-	// the mailbox state and cannot resolve a seq→UID mapping.
-	// All other commands flush pending expunges before the tagged OK so the
-	// client sees them while still processing the response.
+	// RFC 3501 §7.4.1: EXPUNGE MUST NOT be sent during FETCH, STORE, or
+	// SEARCH responses, nor during SELECT/EXAMINE (client has no seq→UID
+	// map yet). All other commands flush pending expunges before tagged OK.
 	allowExpunge := true
 	switch cmd {
-	case "SELECT", "EXAMINE":
+	case "SELECT", "EXAMINE",
+		"FETCH", "UID FETCH",
+		"STORE", "UID STORE",
+		"SEARCH", "UID SEARCH":
 		allowExpunge = false
 	}
 
