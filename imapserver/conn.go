@@ -214,6 +214,21 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 		name = "UID " + strings.ToUpper(subName)
 	}
 
+	// Deliver any pending expunge notifications before commands that
+	// suppress post-command expunge delivery (RFC 3501 §7.4.1). Without
+	// this, a sequence of FETCH → FETCH → FETCH never delivers expunges,
+	// leaving clients with stale sequence→UID mappings when the FETCH
+	// response is constructed.
+	if c.state == imap.ConnStateSelected {
+		switch name {
+		case "FETCH", "UID FETCH", "STORE", "UID STORE", "SEARCH", "UID SEARCH":
+			pw := &UpdateWriter{conn: c, allowExpunge: true}
+			if err := c.session.Poll(pw, true); err != nil {
+				return err
+			}
+		}
+	}
+
 	// TODO: handle multiple commands concurrently
 	sendOK := true
 	var err error
