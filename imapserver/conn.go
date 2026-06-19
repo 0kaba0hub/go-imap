@@ -344,17 +344,7 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 			Text: fmt.Sprintf("%v completed", name),
 		}
 	}
-	if err := c.writeStatusResp(tag, resp); err != nil {
-		return err
-	}
-	// After tagged OK the client is between commands — flush any expunges
-	// that were suppressed during processing (RFC 3501 §7.4.1).
-	// Skip commands that already delivered expunges pre-OK.
-	switch name {
-	case "EXPUNGE", "UID EXPUNGE", "CLOSE", "UNSELECT":
-		return nil
-	}
-	return c.pollExpunge()
+	return c.writeStatusResp(tag, resp)
 }
 
 func (c *Conn) handleNoop(dec *imapwire.Decoder) error {
@@ -509,30 +499,18 @@ func (c *Conn) poll(cmd string) error {
 		return nil
 	}
 
-	// Expunge is safe only for commands that explicitly act on the message
-	// set (EXPUNGE, UID EXPUNGE, CLOSE, UNSELECT). Every other command runs
-	// with allowExpunge=false; pending expunges are flushed after the tagged
-	// OK via pollExpunge(), at which point the client is between commands.
-	allowExpunge := false
+	// SELECT and EXAMINE suppress expunge: the client has not yet received
+	// the mailbox state and cannot resolve a seq→UID mapping.
+	// All other commands flush pending expunges before the tagged OK so the
+	// client sees them while still processing the response.
+	allowExpunge := true
 	switch cmd {
-	case "EXPUNGE", "UID EXPUNGE", "CLOSE", "UNSELECT":
-		allowExpunge = true
+	case "SELECT", "EXAMINE":
+		allowExpunge = false
 	}
 
 	w := &UpdateWriter{conn: c, allowExpunge: allowExpunge}
 	return c.session.Poll(w, allowExpunge)
-}
-
-// pollExpunge delivers any pending expunge notifications with allowExpunge=true.
-// Called after the tagged OK for commands that suppress expunge delivery during
-// processing (FETCH, STORE, SEARCH) — at that point the client is between
-// commands and expunges are safe (RFC 3501 §7.4.1).
-func (c *Conn) pollExpunge() error {
-	if c.state != imap.ConnStateSelected {
-		return nil
-	}
-	w := &UpdateWriter{conn: c, allowExpunge: true}
-	return c.session.Poll(w, true)
 }
 
 type responseEncoder struct {
