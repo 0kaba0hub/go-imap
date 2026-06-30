@@ -40,10 +40,10 @@ func (c *Conn) availableCaps() []imap.Cap {
 	}
 
 	if available.Has(imap.CapIMAP4rev1) {
-		caps = append(caps, []imap.Cap{
-			imap.CapSASLIR,
-			imap.CapLiteralMinus,
-		}...)
+		caps = append(caps, imap.CapSASLIR)
+		if !available.Has(imap.CapLiteralPlus) {
+			caps = append(caps, imap.CapLiteralMinus)
+		}
 	}
 	if c.canStartTLS() {
 		caps = append(caps, imap.CapStartTLS)
