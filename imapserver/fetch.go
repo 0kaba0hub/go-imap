@@ -400,6 +400,16 @@ func (cmd *FetchWriter) CreateMessage(seqNum uint32) *FetchResponseWriter {
 	return &FetchResponseWriter{enc: enc, options: cmd.options}
 }
 
+// WriteMailboxFlags writes an untagged "* FLAGS (...)" response before
+// per-message FETCH responses, as required by RFC 3501 §7.2.6 when new
+// keywords must be announced to the client mid-command.
+func (cmd *FetchWriter) WriteMailboxFlags(flags []imap.Flag) error {
+	if cmd.conn == nil {
+		return nil
+	}
+	return cmd.conn.writeFlags(flags)
+}
+
 // WriteVanished emits one "* VANISHED (EARLIER) <uids>" line, the
 // response to UID FETCH ... (CHANGEDSINCE n VANISHED) per RFC 7162
 // §3.2.10. Sessions call it before (or after) the per-message
