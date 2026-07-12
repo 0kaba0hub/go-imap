@@ -89,6 +89,10 @@ func (c *Conn) writeStatus(data *imap.StatusData, options *imap.StatusOptions) e
 	if options.HighestModSeq {
 		listEnc.Item().Atom("HIGHESTMODSEQ").SP().ModSeq(data.HighestModSeq)
 	}
+	if options.MailboxID && data.MailboxID != "" {
+		// RFC 8474 §5.2: MAILBOXID (objectid)
+		listEnc.Item().Atom("MAILBOXID").SP().Special('(').Atom(data.MailboxID).Special(')')
+	}
 	listEnc.End()
 
 	return enc.CRLF()
@@ -121,6 +125,9 @@ func readStatusItem(dec *imapwire.Decoder, options *imap.StatusOptions) error {
 	case "HIGHESTMODSEQ":
 		// RFC 7162 §3.1.2.2.
 		options.HighestModSeq = true
+	case "MAILBOXID":
+		// RFC 8474 §5.2 (OBJECTID).
+		options.MailboxID = true
 	default:
 		return &imap.Error{
 			Type: imap.StatusResponseTypeBad,
