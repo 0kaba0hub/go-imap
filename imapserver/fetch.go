@@ -131,6 +131,12 @@ func handleFetchAtt(dec *imapwire.Decoder, attName string, options *imap.FetchOp
 		// include the mod-sequence value in the FETCH response. The
 		// session emits it via FetchResponseWriter.WriteModSeq.
 		options.ModSeq = true
+	case "EMAILID":
+		// RFC 8474 §5.3 (OBJECTID). Emitted via WriteEmailID.
+		options.EmailID = true
+	case "THREADID":
+		// RFC 8474 §5.4 (OBJECTID). Emitted via WriteThreadID.
+		options.ThreadID = true
 	case "RFC822": // equivalent to BODY[]
 		bs := &imap.FetchItemBodySection{}
 		writerOptions.obsolete[bs] = attName
@@ -470,6 +476,29 @@ func (w *FetchResponseWriter) WriteModSeq(modSeq uint64) {
 func (w *FetchResponseWriter) WriteRFC822Size(size int64) {
 	w.writeItemSep()
 	w.enc.Atom("RFC822.SIZE").SP().Number64(size)
+}
+
+// WriteEmailID writes the message's immutable identifier (RFC 8474 §5.3):
+//
+//	EMAILID (objectid)
+func (w *FetchResponseWriter) WriteEmailID(id string) {
+	w.writeItemSep()
+	w.enc.Atom("EMAILID").SP().Special('(').Atom(id).Special(')')
+}
+
+// WriteThreadID writes the message's thread identifier (RFC 8474 §5.4). An
+// empty id is emitted as THREADID NIL:
+//
+//	THREADID (objectid)
+//	THREADID NIL
+func (w *FetchResponseWriter) WriteThreadID(id string) {
+	w.writeItemSep()
+	w.enc.Atom("THREADID").SP()
+	if id == "" {
+		w.enc.NIL()
+		return
+	}
+	w.enc.Special('(').Atom(id).Special(')')
 }
 
 // WriteInternalDate writes the message's internal date.
