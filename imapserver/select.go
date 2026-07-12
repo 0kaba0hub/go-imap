@@ -81,6 +81,12 @@ func (c *Conn) handleSelect(tag string, dec *imapwire.Decoder, readOnly bool) er
 			return err
 		}
 	}
+	// RFC 8474 §5.1: MAILBOXID response code (OBJECTID).
+	if data.MailboxID != "" {
+		if err := c.writeMailboxID(data.MailboxID); err != nil {
+			return err
+		}
+	}
 	// QRESYNC SELECT (RFC 7162 §3.2): the server emits one
 	// "* VANISHED (EARLIER) <uids>" line carrying every UID that has
 	// been expunged since the client's last known mod-sequence.
@@ -176,6 +182,18 @@ func (c *Conn) writeUIDNext(uidNext imap.UID) error {
 	enc.Atom("*").SP().Atom("OK").SP()
 	enc.Special('[').Atom("UIDNEXT").SP().UID(uidNext).Special(']')
 	enc.SP().Text("Predicted next UID")
+	return enc.CRLF()
+}
+
+// writeMailboxID writes the RFC 8474 MAILBOXID response code:
+//
+//	* OK [MAILBOXID (objectid)] Ok
+func (c *Conn) writeMailboxID(id string) error {
+	enc := newResponseEncoder(c)
+	defer enc.end()
+	enc.Atom("*").SP().Atom("OK").SP()
+	enc.Special('[').Atom("MAILBOXID").SP().Special('(').Atom(id).Special(')').Special(']')
+	enc.SP().Text("Mailbox ID")
 	return enc.CRLF()
 }
 
