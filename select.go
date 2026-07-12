@@ -49,6 +49,9 @@ type SelectData struct {
 	// ReadOnly indicates that the mailbox is read-only.
 	ReadOnly bool
 
+	// MailboxID is the RFC 8474 MAILBOXID; empty = not advertised.
+	MailboxID string // requires OBJECTID
+
 	// Vanished, when non-empty, is reported as
 	// "* VANISHED (EARLIER) <uids>" before the tagged OK. The
 	// server populates it during a QRESYNC SELECT with the UIDs
