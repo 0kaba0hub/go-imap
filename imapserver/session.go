@@ -92,6 +92,18 @@ type SessionMove interface {
 	Move(w *MoveWriter, numSet imap.NumSet, dest string) error
 }
 
+// SessionNotify is an IMAP session which supports the NOTIFY extension
+// (RFC 5465).
+type SessionNotify interface {
+	Session
+
+	// Notify configures which unsolicited responses the session sends for
+	// mailbox events. options is nil for NOTIFY NONE (disable). For NOTIFY SET
+	// with the STATUS option the session may write immediate STATUS responses
+	// for the newly monitored mailboxes via w.
+	Notify(w *UpdateWriter, options *imap.NotifyOptions) error
+}
+
 // SessionIMAP4rev2 is an IMAP session which supports IMAP4rev2.
 type SessionIMAP4rev2 interface {
 	Session
