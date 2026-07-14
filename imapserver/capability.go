@@ -96,6 +96,7 @@ func (c *Conn) availableCaps() []imap.Cap {
 			imap.CapCondStore, // RFC 7162 §3 — see fetch/store/search/select/status.go
 			imap.CapQResync,   // RFC 7162 §4 — see enable.go, expunge.go, select.go
 			imap.CapObjectID,  // RFC 8474 — see select.go, status.go, fetch.go
+			imap.CapNotify,    // RFC 5465 — see notify.go
 		})
 
 		// METADATA capability

@@ -273,6 +273,8 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 		err = c.handleSetQuota(dec)
 	case "IDLE":
 		err = c.handleIdle(dec)
+	case "NOTIFY":
+		err = c.handleNotify(dec)
 	case "SELECT", "EXAMINE":
 		err = c.handleSelect(tag, dec, name == "EXAMINE")
 		sendOK = false
