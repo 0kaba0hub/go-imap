@@ -659,6 +659,15 @@ func (w *UpdateWriter) WriteMailboxFlags(flags []imap.Flag) error {
 	return w.conn.writeFlags(flags)
 }
 
+// WriteStatus writes an untagged STATUS response for an arbitrary mailbox.
+// Unlike the other UpdateWriter methods it is not scoped to the selected
+// mailbox: NOTIFY (RFC 5465 §6) reports activity in non-selected mailboxes
+// as "* STATUS <mailbox> (...)". options selects which items of data are
+// emitted.
+func (w *UpdateWriter) WriteStatus(data *imap.StatusData, options *imap.StatusOptions) error {
+	return w.conn.writeStatus(data, options)
+}
+
 // WriteMessageFlags writes a FETCH response with FLAGS.
 func (w *UpdateWriter) WriteMessageFlags(seqNum uint32, uid imap.UID, flags []imap.Flag) error {
 	fetchWriter := &FetchWriter{conn: w.conn}
