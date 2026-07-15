@@ -668,6 +668,14 @@ func (w *UpdateWriter) WriteStatus(data *imap.StatusData, options *imap.StatusOp
 	return w.conn.writeStatus(data, options)
 }
 
+// WriteList writes an untagged LIST response for an arbitrary mailbox. NOTIFY
+// (RFC 5465 §5) reports mailbox-name and subscription changes this way:
+// creation ("* LIST () ..."), deletion ("* LIST (\NonExistent) ..."), rename
+// (OLDNAME extended data) and subscription state (\Subscribed attr).
+func (w *UpdateWriter) WriteList(data *imap.ListData) error {
+	return w.conn.writeList(data)
+}
+
 // WriteMessageFlags writes a FETCH response with FLAGS.
 func (w *UpdateWriter) WriteMessageFlags(seqNum uint32, uid imap.UID, flags []imap.Flag) error {
 	fetchWriter := &FetchWriter{conn: w.conn}
