@@ -386,6 +386,19 @@ func (mbox *MailboxView) Search(numKind imapserver.NumKind, criteria *imap.Searc
 			data.Max = num
 		}
 		data.Count++
+		if options.ReturnRelevancy {
+			// imapmemserver has no ranking model to draw a real score from —
+			// this reference/test server assigns a deterministic descending
+			// placeholder (100, 99, 98, ...) in match order purely so RFC
+			// 4731/6203 RELEVANCY wiring (parse → session → ESEARCH encode →
+			// client decode) is exercisable end-to-end by tests. Real scoring
+			// is entirely the session implementation's responsibility.
+			score := uint32(100 - len(data.Relevancy))
+			if score < 1 {
+				score = 1
+			}
+			data.Relevancy = append(data.Relevancy, score)
+		}
 	}
 
 	switch numKind {

@@ -17,10 +17,11 @@ func returnSearchOptions(options *imap.SearchOptions) []string {
 	}
 
 	m := map[string]bool{
-		"MIN":   options.ReturnMin,
-		"MAX":   options.ReturnMax,
-		"ALL":   options.ReturnAll,
-		"COUNT": options.ReturnCount,
+		"MIN":       options.ReturnMin,
+		"MAX":       options.ReturnMax,
+		"ALL":       options.ReturnAll,
+		"COUNT":     options.ReturnCount,
+		"RELEVANCY": options.ReturnRelevancy,
 	}
 
 	var l []string
@@ -346,6 +347,19 @@ func readESearchResponse(dec *imapwire.Decoder) (tag string, data *imap.SearchDa
 				return "", nil, dec.Err()
 			}
 			data.ModSeq = modSeq
+		case "RELEVANCY":
+			var scores []uint32
+			if err := dec.ExpectList(func() error {
+				var score uint32
+				if !dec.ExpectNumber(&score) {
+					return dec.Err()
+				}
+				scores = append(scores, score)
+				return nil
+			}); err != nil {
+				return "", nil, err
+			}
+			data.Relevancy = scores
 		default:
 			if !dec.DiscardValue() {
 				return "", nil, dec.Err()
