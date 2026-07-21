@@ -20,6 +20,10 @@ type SearchOptions struct {
 	// item. Servers should set this automatically when criteria.ModSeq
 	// is non-nil; clients leave it false on the request side.
 	ReturnModSeq bool
+	// ReturnRelevancy requests RFC 4731/6203 relevancy scores in the
+	// ESEARCH response. Requires an ESEARCH-capable session (ESEARCH or
+	// IMAP4rev2); the session fills SearchData.Relevancy when set.
+	ReturnRelevancy bool
 }
 
 // SearchCriteria is a criteria for the SEARCH command.
@@ -150,6 +154,16 @@ type SearchData struct {
 
 	// requires CONDSTORE
 	ModSeq uint64
+
+	// Relevancy holds RFC 4731/6203 relevancy scores, one per message in
+	// All's enumeration order (SeqNums()/UIDs() — whichever matches the
+	// SEARCH's NumKind). Each score is in [1, 100]; the session computes
+	// and normalizes these, e.g. from an FTS engine's native ranking
+	// weights. Nil/empty means no scores available even though requested
+	// (SearchOptions.ReturnRelevancy) — the RELEVANCY item is then omitted
+	// from the ESEARCH response entirely, per RFC 4731 §3.2 ("absent" data
+	// items are simply not returned).
+	Relevancy []uint32
 }
 
 // AllSeqNums returns All as a slice of sequence numbers.
