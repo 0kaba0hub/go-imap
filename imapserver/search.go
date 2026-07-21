@@ -152,6 +152,21 @@ func (c *Conn) writeESearch(tag string, data *imap.SearchData, options *imap.Sea
 	if options.ReturnModSeq && data.ModSeq != 0 {
 		enc.SP().Atom("MODSEQ").SP().ModSeq(data.ModSeq)
 	}
+	// RFC 4731 §3.2 / RFC 6203: RELEVANCY is a parenthesized list of scores,
+	// one per message in All's enumeration order. Absent (nil/empty) is
+	// simply omitted, not sent as an empty list — the session may not have
+	// scores available (e.g. no FTS engine backed this search) even though
+	// the client asked for them.
+	if options.ReturnRelevancy && len(data.Relevancy) > 0 {
+		enc.SP().Atom("RELEVANCY").SP().Special('(')
+		for i, score := range data.Relevancy {
+			if i > 0 {
+				enc.SP()
+			}
+			enc.Number(score)
+		}
+		enc.Special(')')
+	}
 	return enc.CRLF()
 }
 
@@ -212,6 +227,8 @@ func readSearchReturnOpts(dec *imapwire.Decoder, options *imap.SearchOptions) er
 			options.ReturnCount = true
 		case "SAVE":
 			options.ReturnSave = true
+		case "RELEVANCY":
+			options.ReturnRelevancy = true
 		default:
 			return newClientBugError("unknown SEARCH RETURN option")
 		}
