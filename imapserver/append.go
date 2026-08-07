@@ -106,6 +106,12 @@ func (c *Conn) handleAppend(tag string, dec *imapwire.Decoder) error {
 	// second copy (#1129). The trailing tokens are consumed best-effort; the
 	// connection is resynced by the caller's DiscardLine, and OK is the truthful
 	// answer to a store that succeeded.
+	//
+	// Deliberate consequence: a client whose framing is broken now gets OK and
+	// never learns of its bug -- it hung before #1127, saw BAD after, and now
+	// succeeds. That is the right trade (the alternative punishes the mailbox
+	// for a client defect), but it means this server no longer surfaces a
+	// client's framing fault on APPEND.
 	if dataExt != "" {
 		dec.ExpectSpecial(')')
 	}
