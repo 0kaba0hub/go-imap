@@ -90,23 +90,26 @@ func (c *Conn) handleAppend(tag string, dec *imapwire.Decoder) error {
 	}
 
 	data, appendErr := c.session.Append(mailbox, lit, &options)
-	// err was bound once at ExpectLiteralReader and never reassigned (the reads
-	// below use :=), so `return err` here returns nil -- and nil means "handled
-	// OK" to the connection layer, which then writes no tagged line. The
-	// command has already run; the client is owed a tagged response either way
-	// (RFC 9051 6.3.12). Return the real error instead of silence.
 	if _, discardErr := io.Copy(io.Discard, lit); discardErr != nil {
 		return discardErr
 	}
-	if dataExt != "" && !dec.ExpectSpecial(')') {
-		return dec.Err()
-	}
-	if !dec.ExpectCRLF() {
-		return dec.Err()
-	}
+	// The refusal wins over the tail: if the session refused (ACL, quota, ...),
+	// nothing was stored, so a malformed trailing CRLF is moot and the refusal
+	// is the truthful answer.
 	if appendErr != nil {
 		return appendErr
 	}
+	// The store happened. A malformed command tail -- an extra CR, which
+	// openssl s_client -crlf makes of a client's explicit \r\n -- must NOT be
+	// answered BAD here: the message IS stored, and RFC 9051 7.1.3 has BAD mean
+	// the command did not run, so a client reads BAD, retries, and stores a
+	// second copy (#1129). The trailing tokens are consumed best-effort; the
+	// connection is resynced by the caller's DiscardLine, and OK is the truthful
+	// answer to a store that succeeded.
+	if dataExt != "" {
+		dec.ExpectSpecial(')')
+	}
+	dec.ExpectCRLF()
 	if err := c.poll("APPEND"); err != nil {
 		return err
 	}
