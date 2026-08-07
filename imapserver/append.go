@@ -90,6 +90,11 @@ func (c *Conn) handleAppend(tag string, dec *imapwire.Decoder) error {
 	}
 
 	data, appendErr := c.session.Append(mailbox, lit, &options)
+	// err was bound once at ExpectLiteralReader and never reassigned (the reads
+	// below use :=), so `return err` here returns nil -- and nil means "handled
+	// OK" to the connection layer, which then writes no tagged line. The
+	// command has already run; the client is owed a tagged response either way
+	// (RFC 9051 6.3.12). Return the real error instead of silence.
 	if _, discardErr := io.Copy(io.Discard, lit); discardErr != nil {
 		return discardErr
 	}
