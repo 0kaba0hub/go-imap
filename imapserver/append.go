@@ -107,15 +107,22 @@ func (c *Conn) handleAppend(tag string, dec *imapwire.Decoder) error {
 	// connection is resynced by the caller's DiscardLine, and OK is the truthful
 	// answer to a store that succeeded.
 	//
-	// Deliberate consequence: a client whose framing is broken now gets OK and
-	// never learns of its bug -- it hung before #1127, saw BAD after, and now
-	// succeeds. That is the right trade (the alternative punishes the mailbox
-	// for a client defect), but it means this server no longer surfaces a
-	// client's framing fault on APPEND.
-	if dataExt != "" {
-		dec.ExpectSpecial(')')
+	// The store happened on a fully-delivered literal (the session errors on an
+	// under-delivered one, so appendErr caught that above). A malformed tail --
+	// garbage after the complete literal -- must not turn OK into BAD; but it is
+	// still a client framing fault, so it is logged rather than swallowed. The
+	// trade is "we do not punish the mailbox for the client's bug", not "we stay
+	// silent about it" (#1129, #1137).
+	tailOK := true
+	if dataExt != "" && !dec.ExpectSpecial(')') {
+		tailOK = false
 	}
-	dec.ExpectCRLF()
+	if !dec.ExpectCRLF() {
+		tailOK = false
+	}
+	if !tailOK {
+		c.server.logger().Printf("APPEND from %v: malformed command tail after a complete literal; message stored, answering OK (tag %s, mailbox %q)", c.conn.RemoteAddr(), tag, mailbox)
+	}
 	if err := c.poll("APPEND"); err != nil {
 		return err
 	}
