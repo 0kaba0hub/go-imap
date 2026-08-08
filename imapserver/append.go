@@ -121,7 +121,16 @@ func (c *Conn) handleAppend(tag string, dec *imapwire.Decoder) error {
 		tailOK = false
 	}
 	if !tailOK {
-		c.server.logger().Printf("APPEND from %v: malformed command tail after a complete literal; message stored, answering OK (tag %s, mailbox %q)", c.conn.RemoteAddr(), tag, mailbox)
+		// Behind a login proxy the remote address is the proxy with port 0 and
+		// identifies no connection; the session id, when the backend provides
+		// one, is what joins this line to the rest of the session's logs.
+		who := fmt.Sprintf("%v", c.conn.RemoteAddr())
+		if s, ok := c.session.(interface{ SessionID() string }); ok {
+			if id := s.SessionID(); id != "" {
+				who += " sid " + id
+			}
+		}
+		c.server.logger().Printf("APPEND from %s: malformed command tail after a complete literal; message stored, answering OK (tag %s, mailbox %q)", who, tag, mailbox)
 	}
 	if err := c.poll("APPEND"); err != nil {
 		return err
