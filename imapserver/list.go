@@ -48,7 +48,7 @@ func (c *Conn) handleLSub(dec *imapwire.Decoder) error {
 	// attribute unless it is also subscribed to (RFC 5258 section 3.5). This matches
 	// LIST (SUBSCRIBED RECURSIVEMATCH), not just LIST (SUBSCRIBED). writeLsub
 	// converts RECURSIVEMATCH output into LSUB output (CHILDINFO mapped to \Noselect).
-	options := &imap.ListOptions{SelectSubscribed: true, SelectRecursiveMatch: true}
+	options := &imap.ListOptions{SelectSubscribed: true, SelectRecursiveMatch: true, Lsub: true}
 	w := &ListWriter{
 		conn: c,
 		lsub: true,

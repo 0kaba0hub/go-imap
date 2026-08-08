@@ -6,6 +6,7 @@ type ListOptions struct {
 	SelectRemote         bool
 	SelectRecursiveMatch bool // requires SelectSubscribed to be set
 	SelectSpecialUse     bool // requires SPECIAL-USE
+	Lsub                 bool // server only: the command was LSUB, not LIST
 
 	ReturnSubscribed bool
 	ReturnChildren   bool
