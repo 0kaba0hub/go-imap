@@ -43,7 +43,7 @@ func (c *Conn) handleLSub(dec *imapwire.Decoder) error {
 		return err
 	}
 
-	options := &imap.ListOptions{SelectSubscribed: true}
+	options := &imap.ListOptions{SelectSubscribed: true, Lsub: true}
 	w := &ListWriter{
 		conn: c,
 		lsub: true,
