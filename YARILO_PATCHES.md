@@ -15,8 +15,29 @@ corresponding cherry-pick is dropped.
 | Tracked PR | Feature | RFCs | Status |
 |:---|:---|:---|:---|
 | [emersion/go-imap#756](https://github.com/emersion/go-imap/pull/756) — parisxmas | Server-side CONDSTORE + QRESYNC | [RFC 7162](https://www.rfc-editor.org/rfc/rfc7162.html) | open, mergeable, production-tested in [OxiMail](https://github.com/parisxmas/OxiMail) |
-| [emersion/go-imap#717](https://github.com/emersion/go-imap/pull/717) — migadu | Server-side METADATA | [RFC 5464](https://www.rfc-editor.org/rfc/rfc5464.html) | open, mergeable |
-| [emersion/go-imap#730](https://github.com/emersion/go-imap/pull/730) — migadu | Server-side ACL | [RFC 4314](https://www.rfc-editor.org/rfc/rfc4314.html) | open, mergeable |
+| [emersion/go-imap#717](https://github.com/emersion/go-imap/pull/717) — migadu | Server-side METADATA | [RFC 5464](https://www.rfc-editor.org/rfc/rfc5464.html) | **closed unmerged 2026-08-15 — adopted, see below** |
+| [emersion/go-imap#730](https://github.com/emersion/go-imap/pull/730) — migadu | Server-side ACL | [RFC 4314](https://www.rfc-editor.org/rfc/rfc4314.html) | **closed unmerged 2026-08-15 — adopted, see below** |
+
+### Adopted patches
+
+Both migadu PRs were closed by their own author on 2026-08-15, two seconds
+apart, with no closing comment and no maintainer review attached. Upstream did
+not reject the approach; the contributor withdrew the work.
+
+They are therefore **permanent yarilo patches** rather than cherry-picks
+waiting to be dropped, on the same footing as the XCLIENT patch in the go-smtp
+fork. Nothing else changes: they keep being rebased onto `v2` nightly, and they
+have been applying cleanly.
+
+Two consequences worth stating, because they are the price of adopting:
+
+- an upstream refactor of the command-dispatch area is ours to re-land, and a
+  rebase conflict blocks the nightly sync until someone resolves it;
+- if the author withdrew for lack of time rather than a design objection, our
+  version is a candidate to re-propose upstream, which would end the
+  maintenance instead of accepting it. That is a conversation, not a task.
+
+Decided in [yarilomail/yarilo#1329](https://github.com/yarilomail/yarilo/issues/1329).
 
 Considered but not picked:
 [emersion/go-imap#690](https://github.com/emersion/go-imap/pull/690) —
