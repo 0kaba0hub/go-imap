@@ -5,8 +5,10 @@ name: Sync upstream emersion/go-imap
 #   2. Rebases `yarilo-patches` (= v2 + cherry-pick of PR #756 + this workflow)
 #      onto the new `v2`. On clean rebase: force-push with lease.
 #      On conflict: open an issue tagged `upstream-conflict` so we notice.
-#   3. Polls upstream PR #756 — when it lands, opens an issue reminding us
-#      to drop the cherry-pick and the yarilo `go.mod` replace directive.
+#   3. Polls every upstream PR in the watch matrix — when one lands, or is
+#      closed without merging, opens an issue with the next step. The matrix
+#      must list every cherry-pick in YARILO_PATCHES.md; one that is in the
+#      table and not in the matrix is watched by nobody.
 #
 # Triggered nightly (06:00 UTC) and on-demand via workflow_dispatch.
 # All ops run inside this fork; no upstream write access needed.
@@ -163,6 +165,11 @@ jobs:
         pr:
           - { number: 756, topic: "CONDSTORE + QRESYNC" }
           - { number: 717, topic: "METADATA RFC 5464" }
+          # Listed in YARILO_PATCHES.md but missing here, so its closure on
+          # 2026-08-15 -- two seconds after #717, same author -- was reported
+          # by nothing. A patch tracked in the table and not in this matrix is
+          # a patch nobody is watching.
+          - { number: 730, topic: "ACL RFC 4314" }
     steps:
       - name: Check PR ${{ matrix.pr.number }} status
         uses: actions/github-script@v8
