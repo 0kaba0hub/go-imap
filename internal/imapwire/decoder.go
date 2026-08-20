@@ -263,6 +263,15 @@ func (dec *Decoder) DiscardUntilByte(untilCh byte) {
 	}
 }
 
+// MarkLineStart tells the decoder that what it is looking at is the start of a
+// line. DiscardLine then leaves the stream alone, which is what a handler wants
+// after a tail it could not parse but did not consume: the input that follows
+// is the client's next command, and discarding it costs the client a command it
+// sent correctly.
+func (dec *Decoder) MarkLineStart() {
+	dec.crlf = true
+}
+
 func (dec *Decoder) DiscardLine() {
 	if dec.crlf {
 		return
