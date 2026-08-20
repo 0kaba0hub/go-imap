@@ -48,6 +48,12 @@ func (c *Conn) availableCaps() []imap.Cap {
 	if c.canStartTLS() {
 		caps = append(caps, imap.CapStartTLS)
 	}
+	// ID is valid in any state (RFC 2971 §3.1) and clients send it before
+	// authenticating, to name themselves in the server's logs -- so it is
+	// advertised here rather than in the authenticated-only block below.
+	if _, ok := c.session.(SessionID); ok && available.Has(imap.CapID) {
+		caps = append(caps, imap.CapID)
+	}
 	if c.canAuth() {
 		mechs := []string{"PLAIN"}
 		if authSess, ok := c.session.(SessionSASL); ok {
