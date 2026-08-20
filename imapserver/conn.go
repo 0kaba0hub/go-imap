@@ -46,6 +46,10 @@ type Conn struct {
 
 	state   imap.ConnState
 	session Session
+
+	// clientID is what the client told us about itself in its ID command
+	// (RFC 2971), for the session to log or to answer in kind.
+	clientID *imap.IDData
 }
 
 func newConn(c net.Conn, server *Server) *Conn {
@@ -224,6 +228,9 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 		err = c.handleLogout(dec)
 	case "CAPABILITY":
 		err = c.handleCapability(dec)
+	case "ID":
+		err = c.handleID(tag, dec)
+		sendOK = false
 	case "STARTTLS":
 		err = c.handleStartTLS(tag, dec)
 		sendOK = false
