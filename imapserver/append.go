@@ -121,6 +121,15 @@ func (c *Conn) handleAppend(tag string, dec *imapwire.Decoder) error {
 		tailOK = false
 	}
 	if !tailOK {
+		// The tail did not parse, and ExpectCRLF consumes nothing when it
+		// fails, so the decoder is parked at the first byte the client sent
+		// next. The caller resyncs with DiscardLine, which from here eats a
+		// whole well-formed command: a client that omitted the CRLF after its
+		// literal loses the command AFTER the one it got wrong, silently, and
+		// waits out its own timeout (#1370). Hand the input back instead --
+		// garbage gets a tagged BAD from the normal command path, which the
+		// client can see, and a real command is simply served.
+		dec.MarkLineStart()
 		// Behind a login proxy the remote address is the proxy with port 0 and
 		// identifies no connection; the session id, when the backend provides
 		// one, is what joins this line to the rest of the session's logs.
@@ -130,7 +139,7 @@ func (c *Conn) handleAppend(tag string, dec *imapwire.Decoder) error {
 				who += " sid " + id
 			}
 		}
-		c.server.logger().Printf("APPEND from %s: malformed command tail after a complete literal; message stored, answering OK (tag %s, mailbox %q)", who, tag, mailbox)
+		c.server.logger().Printf("APPEND from %s: malformed command tail after a complete literal; message stored, answering OK, following input kept (tag %s, mailbox %q)", who, tag, mailbox)
 	}
 	if err := c.poll("APPEND"); err != nil {
 		return err
