@@ -126,3 +126,15 @@ func TestIDIsAnsweredAndItsLiteralsAreParsed(t *testing.T) {
 		t.Fatalf("the command after a literal-carrying ID was not answered; got %q", l)
 	}
 }
+
+// TestIDIsAdvertisedBeforeLogin: a client only sends ID if CAPABILITY says it
+// may, and it sends it before authenticating. Advertising it only after login
+// would leave the pre-auth identification RFC 2971 describes unreachable.
+func TestIDIsAdvertisedBeforeLogin(t *testing.T) {
+	w := dialID(t)
+	fmt.Fprint(w.conn, "a1 CAPABILITY\r\n")
+	got := strings.Join(w.until("a1", "capability"), "\n")
+	if !strings.Contains(got, " ID") {
+		t.Errorf("CAPABILITY does not advertise ID before login: %q", got)
+	}
+}
