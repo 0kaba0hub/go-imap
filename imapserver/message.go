@@ -22,10 +22,25 @@ func ExtractBodySection(r io.Reader, item *imap.FetchItemBodySection) []byte {
 		body   io.Reader
 	)
 
-	br := bufio.NewReader(r)
+	// The bytes read while parsing the header are kept, so a header the parser
+	// refuses can still be served from the wire form without re-reading a
+	// stream that cannot be rewound. The normal path stays streaming: nothing
+	// but the header is buffered.
+	var seen bytes.Buffer
+	br := bufio.NewReader(io.TeeReader(r, &seen))
 	header, err := textproto.ReadHeader(br)
 	if err != nil {
-		return nil
+		// A message whose header the parser rejects -- a line without a colon
+		// is the common one, and such mail does arrive -- must not become
+		// unfetchable. Answering an empty section tells the client the message
+		// is there and gives it nothing, which is worse than serving what was
+		// stored. Fall back to the wire's own rule: the header ends at the
+		// first empty line.
+		rest, restErr := io.ReadAll(r)
+		if restErr != nil {
+			return nil
+		}
+		return extractLenient(append(seen.Bytes(), rest...), item)
 	}
 	body = br
 
@@ -166,10 +181,24 @@ func ExtractBinarySection(r io.Reader, item *imap.FetchItemBinarySection) []byte
 		body   io.Reader
 	)
 
-	br := bufio.NewReader(r)
+	// As in ExtractBodySection: what the header parser read is kept, so a
+	// header it refuses does not cost the client the message.
+	var seen bytes.Buffer
+	br := bufio.NewReader(io.TeeReader(r, &seen))
 	header, err := textproto.ReadHeader(br)
 	if err != nil {
-		return nil
+		if len(item.Part) > 0 {
+			// A named part needs a parse, and a decoded part needs its
+			// Content-Transfer-Encoding, which is exactly what could not be
+			// read. Nothing honest to return.
+			return nil
+		}
+		// No part, no encoding to trust: serve the message as stored.
+		rest, restErr := io.ReadAll(r)
+		if restErr != nil {
+			return nil
+		}
+		return append(seen.Bytes(), rest...)
 	}
 	body = br
 
@@ -334,4 +363,104 @@ func getContentLanguage(header gomessage.Header) []string {
 		l[i] = strings.TrimSpace(lang)
 	}
 	return l
+}
+
+// extractLenient serves a section of a message whose header the strict parser
+// would not read. It splits at the first empty line and nothing more: that is
+// the only structure such a message reliably has.
+//
+// A section naming a MIME part is not served this way and comes back nil --
+// walking parts needs a parse, and inventing one would answer a client's
+// precise question with a guess.
+func extractLenient(raw []byte, item *imap.FetchItemBodySection) []byte {
+	if len(item.Part) > 0 {
+		return nil
+	}
+	head, body := splitHeader(raw)
+
+	switch item.Specifier {
+	case imap.PartSpecifierNone:
+		if len(item.HeaderFields) == 0 && len(item.HeaderFieldsNot) == 0 {
+			return raw
+		}
+	case imap.PartSpecifierText:
+		return body
+	case imap.PartSpecifierHeader, imap.PartSpecifierMIME:
+		if len(item.HeaderFields) == 0 && len(item.HeaderFieldsNot) == 0 {
+			return head
+		}
+	default:
+		return nil
+	}
+	return filterFieldsLenient(head, item)
+}
+
+// splitHeader cuts a message at the first empty line. The header keeps its
+// terminating blank line, as BODY[HEADER] must (RFC 9051 6.4.5).
+func splitHeader(raw []byte) (head, body []byte) {
+	for _, sep := range [][]byte{[]byte("\r\n\r\n"), []byte("\n\n")} {
+		if i := bytes.Index(raw, sep); i >= 0 {
+			return raw[:i+len(sep)], raw[i+len(sep):]
+		}
+	}
+	return raw, nil
+}
+
+// filterFieldsLenient applies HEADER.FIELDS / HEADER.FIELDS.NOT by walking the
+// header block line by line. A line that names no field is carried with the
+// field above it, which is what a folded value looks like -- and what the
+// malformed line that brought us here looks like too.
+func filterFieldsLenient(head []byte, item *imap.FetchItemBodySection) []byte {
+	keep := make(map[string]struct{}, len(item.HeaderFields))
+	for _, k := range item.HeaderFields {
+		keep[strings.ToLower(k)] = struct{}{}
+	}
+	drop := make(map[string]struct{}, len(item.HeaderFieldsNot))
+	for _, k := range item.HeaderFieldsNot {
+		drop[strings.ToLower(k)] = struct{}{}
+	}
+
+	var out bytes.Buffer
+	keeping := false
+	for _, line := range splitLinesKeepEnding(head) {
+		trimmed := bytes.TrimRight(line, "\r\n")
+		if len(trimmed) == 0 {
+			break
+		}
+		if line[0] == ' ' || line[0] == '\t' {
+			if keeping {
+				out.Write(line)
+			}
+			continue
+		}
+		name := ""
+		if i := bytes.IndexByte(trimmed, ':'); i > 0 {
+			name = strings.ToLower(string(trimmed[:i]))
+		}
+		if len(item.HeaderFields) > 0 {
+			_, keeping = keep[name]
+		} else {
+			_, dropped := drop[name]
+			keeping = !dropped
+		}
+		if keeping {
+			out.Write(line)
+		}
+	}
+	out.WriteString("\r\n")
+	return out.Bytes()
+}
+
+func splitLinesKeepEnding(b []byte) [][]byte {
+	var lines [][]byte
+	for len(b) > 0 {
+		i := bytes.IndexByte(b, '\n')
+		if i < 0 {
+			lines = append(lines, b)
+			break
+		}
+		lines = append(lines, b[:i+1])
+		b = b[i+1:]
+	}
+	return lines
 }
