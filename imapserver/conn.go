@@ -155,6 +155,9 @@ func (c *Conn) serve() {
 	if _, ok := c.session.(SessionMove); !ok && caps.Has(imap.CapMove) {
 		panic("imapserver: server advertises MOVE but session doesn't support it")
 	}
+	if _, ok := c.session.(SessionThread); !ok && len(caps.ThreadAlgorithms()) > 0 {
+		panic("imapserver: server advertises THREAD but session doesn't support it")
+	}
 	if _, ok := c.session.(SessionUnauthenticate); !ok && caps.Has(imap.CapUnauthenticate) {
 		panic("imapserver: server advertises UNAUTHENTICATE but session doesn't support it")
 	}
@@ -306,6 +309,8 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 		err = c.handleMove(dec, numKind)
 	case "SEARCH", "UID SEARCH":
 		err = c.handleSearch(tag, dec, numKind)
+	case "THREAD", "UID THREAD":
+		err = c.handleThread(dec, numKind)
 	case "GETMETADATA":
 		err = c.handleGetMetadata(dec)
 	case "SETMETADATA":
@@ -517,7 +522,8 @@ func (c *Conn) poll(cmd string) error {
 	case "SELECT", "EXAMINE",
 		"FETCH", "UID FETCH",
 		"STORE", "UID STORE",
-		"SEARCH", "UID SEARCH":
+		"SEARCH", "UID SEARCH",
+		"THREAD", "UID THREAD":
 		allowExpunge = false
 	}
 
