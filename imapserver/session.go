@@ -92,6 +92,18 @@ type SessionMove interface {
 	Move(w *MoveWriter, numSet imap.NumSet, dest string) error
 }
 
+// SessionThread is an IMAP session which supports THREAD (RFC 5256).
+//
+// Threading is computed by the session, not by this package: the tree depends
+// on headers and on the base subject rules of §2.1, both of which only the
+// backend can see.
+type SessionThread interface {
+	Session
+
+	// Selected state
+	Thread(kind NumKind, alg imap.ThreadAlgorithm, criteria *imap.SearchCriteria) ([]imap.ThreadNode, error)
+}
+
 // SessionNotify is an IMAP session which supports the NOTIFY extension
 // (RFC 5465).
 type SessionNotify interface {
