@@ -5,22 +5,23 @@ import (
 	"github.com/emersion/go-imap/v2/internal/imapwire"
 )
 
-type SortKey string
-
-const (
-	SortKeyArrival SortKey = "ARRIVAL"
-	SortKeyCc      SortKey = "CC"
-	SortKeyDate    SortKey = "DATE"
-	SortKeyFrom    SortKey = "FROM"
-	SortKeySize    SortKey = "SIZE"
-	SortKeySubject SortKey = "SUBJECT"
-	SortKeyTo      SortKey = "TO"
+// The sort types moved to the imap package so that a server can name them
+// too; these aliases keep every existing client reference compiling and
+// referring to the same type.
+type (
+	SortKey       = imap.SortKey
+	SortCriterion = imap.SortCriterion
 )
 
-type SortCriterion struct {
-	Key     SortKey
-	Reverse bool
-}
+const (
+	SortKeyArrival = imap.SortKeyArrival
+	SortKeyCc      = imap.SortKeyCc
+	SortKeyDate    = imap.SortKeyDate
+	SortKeyFrom    = imap.SortKeyFrom
+	SortKeySize    = imap.SortKeySize
+	SortKeySubject = imap.SortKeySubject
+	SortKeyTo      = imap.SortKeyTo
+)
 
 // SortOptions contains options for the SORT command.
 type SortOptions struct {
