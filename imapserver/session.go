@@ -104,6 +104,18 @@ type SessionThread interface {
 	Thread(kind NumKind, alg imap.ThreadAlgorithm, criteria *imap.SearchCriteria) ([]imap.ThreadNode, error)
 }
 
+// SessionSort is an IMAP session which supports SORT (RFC 5256).
+//
+// The session returns the matching messages already ordered, because sorting
+// needs the message data -- headers, sizes, dates -- that only the backend
+// has. Numbers are sequence numbers or UIDs, according to kind.
+type SessionSort interface {
+	Session
+
+	// Selected state
+	Sort(kind NumKind, criteria []imap.SortCriterion, search *imap.SearchCriteria) ([]uint32, error)
+}
+
 // SessionNotify is an IMAP session which supports the NOTIFY extension
 // (RFC 5465).
 type SessionNotify interface {
