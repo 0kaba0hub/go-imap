@@ -528,9 +528,8 @@ func (dec *Decoder) ExpectMailbox(ptr *string) bool {
 	}
 	name, err := utf7.Decode(name)
 	if err != nil {
-		// A name that is not modified UTF-7 is a malformed command, not a
-		// server fault: the connection loop answers BAD for an expect error
-		// and NO [SERVERBUG] for anything else.
+		// A name that is not modified UTF-7 is a malformed command: the loop
+		// answers BAD for an expect error, NO [SERVERBUG] for anything else.
 		return dec.returnErr(&DecoderExpectError{
 			Message: fmt.Sprintf("invalid mailbox name: %v", err),
 		})
@@ -560,7 +559,7 @@ func (dec *Decoder) ExpectNumSet(kind NumKind, ptr *imap.NumSet) bool {
 	}
 	numSet, err := imapnum.ParseSet(s)
 	if err != nil {
-		// Same as above: the client sent something the grammar does not allow.
+		// Same: the client sent what the grammar does not allow.
 		return dec.returnErr(&DecoderExpectError{
 			Message: fmt.Sprintf("invalid sequence-set: %v", err),
 		})
