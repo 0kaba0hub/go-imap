@@ -410,10 +410,10 @@ func readSearchKeyWithAtom(criteria *imap.SearchCriteria, dec *imapwire.Decoder,
 	default:
 		seqSet, err := imapwire.ParseSeqSet(key)
 		if err != nil {
-			// An unknown key reaches here as a sequence-set candidate; failing
-			// to parse it is the client's syntax, not a server fault.
-			return &imapwire.DecoderExpectError{
-				Message: fmt.Sprintf("invalid search-key %q", key),
+			return &imap.Error{
+				Type: imap.StatusResponseTypeBad,
+				Code: imap.ResponseCodeClientBug,
+				Text: fmt.Sprintf("invalid search-key %q", key),
 			}
 		}
 		criteria.SeqNum = append(criteria.SeqNum, seqSet)
