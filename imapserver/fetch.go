@@ -589,6 +589,23 @@ func (w *FetchResponseWriter) WriteEnvelope(envelope *imap.Envelope) {
 	writeEnvelope(enc, envelope)
 }
 
+// WriteEnvelopeRaw writes an ENVELOPE whose ten items the caller has already
+// encoded, without the enclosing parentheses.
+//
+// A backend that stores the envelope as IMAP text -- a message cache written
+// by another implementation, for instance -- must be able to hand that text
+// back unchanged: re-deriving it through Envelope decodes encoded words, drops
+// address groups, and re-encodes the subject, so the client sees something
+// other than what the message said.
+func (w *FetchResponseWriter) WriteEnvelopeRaw(envelope string) {
+	w.writeItemSep()
+	enc := w.enc.Encoder
+	enc.Atom("ENVELOPE").SP()
+	enc.Special('(')
+	enc.Atom(envelope)
+	enc.Special(')')
+}
+
 // WriteBodyStructure writes the message's body structure (either BODYSTRUCTURE
 // or BODY).
 func (w *FetchResponseWriter) WriteBodyStructure(bs imap.BodyStructure) {
