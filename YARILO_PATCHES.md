@@ -99,6 +99,7 @@ When a tracked PR lands upstream:
 | `migadu/go-imap` PR #717 | `3dbbdb9`, `bfa51c1`, `881dd3c`, `6fe3521` | METADATA RFC 5464 server support + fixes |
 | `migadu/go-imap` PR #730 | `5eb99da`, `284f43f`, `76f65c7` | ACL RFC 4314 server support + tests + obsolete-right back-compat |
 | yarilo original | (this branch HEAD) | Suppress expunge only during SELECT/EXAMINE (client has no seq→UID map yet); deliver expunges before tagged OK for all other commands (fix #314) |
+| yarilo original | (this branch HEAD) | `FetchResponseWriter.WriteEnvelopeRaw`: answer FETCH ENVELOPE with text the backend already holds. Permanent, with no upstream PR to track — the need is a backend that stores the reference's own envelope text, which upstream has no reason to carry, so it is absent from the tracking matrix above on purpose ([yarilomail/yarilo#1714](https://github.com/yarilomail/yarilo/issues/1714)) |
 
 ## yarilo's go.mod replace
 
