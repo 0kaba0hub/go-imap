@@ -17,6 +17,7 @@ corresponding cherry-pick is dropped.
 | [emersion/go-imap#756](https://github.com/emersion/go-imap/pull/756) — parisxmas | Server-side CONDSTORE + QRESYNC | [RFC 7162](https://www.rfc-editor.org/rfc/rfc7162.html) | open, mergeable, production-tested in [OxiMail](https://github.com/parisxmas/OxiMail) |
 | [emersion/go-imap#717](https://github.com/emersion/go-imap/pull/717) — migadu | Server-side METADATA | [RFC 5464](https://www.rfc-editor.org/rfc/rfc5464.html) | **closed unmerged 2026-08-15 — adopted, see below** |
 | [emersion/go-imap#730](https://github.com/emersion/go-imap/pull/730) — migadu | Server-side ACL | [RFC 4314](https://www.rfc-editor.org/rfc/rfc4314.html) | **closed unmerged 2026-08-15 — adopted, see below** |
+| [emersion/go-imap#765](https://github.com/emersion/go-imap/pull/765) — 0kaba0hub | BAD, not NO [SERVERBUG], for a parse failure | [RFC 9051 §7.1.3](https://www.rfc-editor.org/rfc/rfc9051.html#section-7.1.3) | **merged 2026-09-18 as `4441c8bb`; the three downstream commits were dropped at that rebase** |
 
 ### Adopted patches
 
