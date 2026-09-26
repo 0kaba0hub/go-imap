@@ -697,11 +697,21 @@ func (w *UpdateWriter) WriteList(data *imap.ListData) error {
 
 // WriteMessageFlags writes a FETCH response with FLAGS.
 func (w *UpdateWriter) WriteMessageFlags(seqNum uint32, uid imap.UID, flags []imap.Flag) error {
+	return w.WriteMessageFlagsModSeq(seqNum, uid, flags, 0)
+}
+
+// WriteMessageFlagsModSeq writes an unsolicited flag change with the message's
+// mod-sequence, which RFC 7162 3.2.4 requires once CONDSTORE is enabled. A
+// zero modSeq writes none.
+func (w *UpdateWriter) WriteMessageFlagsModSeq(seqNum uint32, uid imap.UID, flags []imap.Flag, modSeq uint64) error {
 	fetchWriter := &FetchWriter{conn: w.conn}
 	respWriter := fetchWriter.CreateMessage(seqNum)
 	if uid != 0 {
 		respWriter.WriteUID(uid)
 	}
 	respWriter.WriteFlags(flags)
+	if modSeq != 0 {
+		respWriter.WriteModSeq(modSeq)
+	}
 	return respWriter.Close()
 }
