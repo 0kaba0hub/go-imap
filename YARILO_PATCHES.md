@@ -103,6 +103,7 @@ When a tracked PR lands upstream:
 | yarilo original | (this branch HEAD) | `FetchResponseWriter.WriteEnvelopeRaw`: answer FETCH ENVELOPE with text the backend already holds. Permanent, with no upstream PR to track — the need is a backend that stores the reference's own envelope text, which upstream has no reason to carry, so it is absent from the tracking matrix above on purpose ([yarilomail/yarilo#1714](https://github.com/yarilomail/yarilo/issues/1714)) |
 | yarilo original | (this branch HEAD) | `BINARY[<part>]<origin>`: the server writer prints the origin of a partial BINARY fetch and the client reads it back (RFC 3516 §4.3). Candidate for upstream ([yarilomail/yarilo#2043](https://github.com/yarilomail/yarilo/issues/2043)) |
 | yarilo original | (this branch HEAD) | `UpdateWriter.WriteMessageFlagsModSeq`: an unsolicited flag change carries the message's MODSEQ, required once CONDSTORE is enabled (RFC 7162 §3.2.4). `WriteMessageFlags` keeps its signature. Candidate for upstream ([yarilomail/yarilo#2046](https://github.com/yarilomail/yarilo/issues/2046)) |
+| yarilo original | (this branch HEAD) | CONDSTORE enabled implicitly by a CONDSTORE enabling command — `SELECT`/`EXAMINE (CONDSTORE)`, `STATUS (HIGHESTMODSEQ)`, `FETCH` with `MODSEQ` or `CHANGEDSINCE`, `STORE (UNCHANGEDSINCE)`, `SEARCH MODSEQ` — not only by `ENABLE` (RFC 7162 §3.1). Candidate for upstream ([yarilomail/yarilo#2046](https://github.com/yarilomail/yarilo/issues/2046)) |
 
 ## yarilo's go.mod replace
 

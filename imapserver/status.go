@@ -28,6 +28,9 @@ func (c *Conn) handleStatus(dec *imapwire.Decoder) error {
 	if !dec.ExpectCRLF() {
 		return dec.Err()
 	}
+	if options.HighestModSeq {
+		c.enableCondStore()
+	}
 
 	if options.NumRecent && !c.server.options.caps().Has(imap.CapIMAP4rev1) {
 		return &imap.Error{

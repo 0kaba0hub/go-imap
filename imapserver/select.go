@@ -28,6 +28,9 @@ func (c *Conn) handleSelect(tag string, dec *imapwire.Decoder, readOnly bool) er
 	if err := c.checkState(imap.ConnStateAuthenticated); err != nil {
 		return err
 	}
+	if options.CondStore {
+		c.enableCondStore()
+	}
 
 	if c.state == imap.ConnStateSelected {
 		if err := c.session.Unselect(); err != nil {

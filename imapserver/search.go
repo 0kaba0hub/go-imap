@@ -85,6 +85,7 @@ func (c *Conn) handleSearch(tag string, dec *imapwire.Decoder, numKind NumKind) 
 	// has to compute the value.
 	if containsModSeq(&criteria) {
 		options.ReturnModSeq = true
+		c.enableCondStore()
 	}
 
 	data, err := c.session.Search(numKind, &criteria, &options)
