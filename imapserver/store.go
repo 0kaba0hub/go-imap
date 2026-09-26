@@ -26,6 +26,7 @@ func (c *Conn) handleStore(dec *imapwire.Decoder, numKind NumKind) error {
 		if !dec.ExpectSpecial(')') || !dec.ExpectSP() {
 			return dec.Err()
 		}
+		c.enableCondStore() // UNCHANGEDSINCE is the one modifier
 	}
 	if !dec.ExpectAtom(&item) || !dec.ExpectSP() {
 		return dec.Err()

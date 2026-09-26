@@ -89,6 +89,17 @@ func (c *Conn) Bye(text string) error {
 	return closeErr
 }
 
+// enableCondStore marks CONDSTORE enabled, as a CONDSTORE enabling command
+// does without ENABLE (RFC 7162 3.1), when the server offers it.
+func (c *Conn) enableCondStore() {
+	if !c.server.options.caps().Has(imap.CapCondStore) {
+		return
+	}
+	c.mutex.Lock()
+	c.enabled[imap.CapCondStore] = struct{}{}
+	c.mutex.Unlock()
+}
+
 func (c *Conn) EnabledCaps() imap.CapSet {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
