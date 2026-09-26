@@ -700,9 +700,8 @@ func (w *UpdateWriter) WriteMessageFlags(seqNum uint32, uid imap.UID, flags []im
 	return w.WriteMessageFlagsModSeq(seqNum, uid, flags, 0)
 }
 
-// WriteMessageFlagsModSeq writes an unsolicited flag change with the message's
-// mod-sequence, which RFC 7162 3.2.4 requires once CONDSTORE is enabled. A
-// zero modSeq writes none.
+// WriteMessageFlagsModSeq is WriteMessageFlags with the message's mod-sequence,
+// written once the client enabled CONDSTORE (RFC 7162 3.2.4) and modSeq is set.
 func (w *UpdateWriter) WriteMessageFlagsModSeq(seqNum uint32, uid imap.UID, flags []imap.Flag, modSeq uint64) error {
 	fetchWriter := &FetchWriter{conn: w.conn}
 	respWriter := fetchWriter.CreateMessage(seqNum)
@@ -710,7 +709,7 @@ func (w *UpdateWriter) WriteMessageFlagsModSeq(seqNum uint32, uid imap.UID, flag
 		respWriter.WriteUID(uid)
 	}
 	respWriter.WriteFlags(flags)
-	if modSeq != 0 {
+	if modSeq != 0 && w.conn.EnabledCaps().Has(imap.CapCondStore) {
 		respWriter.WriteModSeq(modSeq)
 	}
 	return respWriter.Close()
