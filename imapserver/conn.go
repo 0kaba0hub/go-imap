@@ -689,6 +689,12 @@ func (w *UpdateWriter) WriteMailboxFlags(flags []imap.Flag) error {
 	return w.conn.writeFlags(flags)
 }
 
+// WriteStatusResp writes an untagged status response ("* NO ..."): a failure
+// met while polling is reported and the command still completes.
+func (w *UpdateWriter) WriteStatusResp(resp *imap.StatusResponse) error {
+	return w.conn.writeStatusResp("", resp)
+}
+
 // WriteStatus writes an untagged STATUS response for an arbitrary mailbox.
 // Unlike the other UpdateWriter methods it is not scoped to the selected
 // mailbox: NOTIFY (RFC 5465 §6) reports activity in non-selected mailboxes
