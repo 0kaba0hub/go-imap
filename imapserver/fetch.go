@@ -105,6 +105,9 @@ func (c *Conn) handleFetch(dec *imapwire.Decoder, numKind NumKind) error {
 		options.UID = true
 	}
 
+	if options.ModSeq || options.ChangedSince != 0 {
+		c.enableCondStore()
+	}
 	w := &FetchWriter{conn: c, options: writerOptions}
 	if err := c.session.Fetch(w, numSet, &options); err != nil {
 		return err
