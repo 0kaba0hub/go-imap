@@ -101,6 +101,7 @@ When a tracked PR lands upstream:
 | `migadu/go-imap` PR #730 | `5eb99da`, `284f43f`, `76f65c7` | ACL RFC 4314 server support + tests + obsolete-right back-compat |
 | yarilo original | (this branch HEAD) | Suppress expunge only during SELECT/EXAMINE (client has no seq→UID map yet); deliver expunges before tagged OK for all other commands (fix #314) |
 | yarilo original | (this branch HEAD) | `FetchResponseWriter.WriteEnvelopeRaw`: answer FETCH ENVELOPE with text the backend already holds. Permanent, with no upstream PR to track — the need is a backend that stores the reference's own envelope text, which upstream has no reason to carry, so it is absent from the tracking matrix above on purpose ([yarilomail/yarilo#1714](https://github.com/yarilomail/yarilo/issues/1714)) |
+| yarilo original | (this branch HEAD) | `BINARY[<part>]<origin>`: the server writer prints the origin of a partial BINARY fetch and the client reads it back (RFC 3516 §4.3). Candidate for upstream ([yarilomail/yarilo#2043](https://github.com/yarilomail/yarilo/issues/2043)) |
 
 ## yarilo's go.mod replace
 
