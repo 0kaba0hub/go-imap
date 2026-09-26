@@ -77,8 +77,10 @@ func (c *Conn) handleFetch(dec *imapwire.Decoder, numKind NumKind) error {
 
 	// Optional fetch-modifiers, RFC 7162 §3.2:
 	//   fetch-modifiers = SP "(" fetch-modifier *(SP fetch-modifier) ")"
+	var changedSince bool
 	if dec.SP() {
-		if err := readFetchModifiers(dec, &options); err != nil {
+		var err error
+		if changedSince, err = readFetchModifiers(dec, &options); err != nil {
 			return err
 		}
 	}
@@ -105,7 +107,8 @@ func (c *Conn) handleFetch(dec *imapwire.Decoder, numKind NumKind) error {
 		options.UID = true
 	}
 
-	if options.ModSeq || options.ChangedSince != 0 {
+	// CHANGEDSINCE 0 is legitimate, so it is the modifier's presence that enables.
+	if options.ModSeq || changedSince {
 		c.enableCondStore()
 	}
 	w := &FetchWriter{conn: c, options: writerOptions}
@@ -244,9 +247,8 @@ func readFetchAttName(dec *imapwire.Decoder) (string, error) {
 // VANISHED requires CHANGEDSINCE; the check uses sawChangedSince
 // rather than options.ChangedSince != 0 so that CHANGEDSINCE 0 (a
 // legitimate "give me everything vanished" floor) is accepted.
-func readFetchModifiers(dec *imapwire.Decoder, options *imap.FetchOptions) error {
-	var sawChangedSince bool
-	err := dec.ExpectList(func() error {
+func readFetchModifiers(dec *imapwire.Decoder, options *imap.FetchOptions) (sawChangedSince bool, err error) {
+	err = dec.ExpectList(func() error {
 		var name string
 		if !dec.ExpectAtom(&name) {
 			return dec.Err()
@@ -266,15 +268,15 @@ func readFetchModifiers(dec *imapwire.Decoder, options *imap.FetchOptions) error
 		return nil
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 	if options.Vanished && !sawChangedSince {
-		return &imap.Error{
+		return false, &imap.Error{
 			Type: imap.StatusResponseTypeBad,
 			Text: "VANISHED FETCH modifier requires CHANGEDSINCE",
 		}
 	}
-	return nil
+	return sawChangedSince, nil
 }
 
 func isMsgAttNameChar(ch byte) bool {
