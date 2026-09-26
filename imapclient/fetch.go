@@ -288,8 +288,14 @@ func matchFetchItemBodySection(cmd, resp *imap.FetchItemBodySection) bool {
 }
 
 func matchFetchItemBinarySection(cmd, resp *imap.FetchItemBinarySection) bool {
-	// Ignore Partial and Peek: these are not echoed back by the server
-	return intSliceEqual(cmd.Part, resp.Part)
+	if !intSliceEqual(cmd.Part, resp.Part) {
+		return false
+	}
+	if (cmd.Partial == nil) != (resp.Partial == nil) {
+		return false
+	}
+	// Ignore Partial.Size and Peek: these are not echoed back by the server
+	return cmd.Partial == nil || cmd.Partial.Offset == resp.Partial.Offset
 }
 
 func intSliceEqual(a, b []int) bool {
@@ -744,7 +750,15 @@ func (c *Client) handleFetch(seqNum uint32) error {
 					if !dec.ExpectSpecial(']') {
 						return dec.Err()
 					}
-					section = &imap.FetchItemBinarySection{Part: part}
+					binSection := &imap.FetchItemBinarySection{Part: part}
+					offset, err := readPartialOffset(dec)
+					if err != nil {
+						return err
+					}
+					if offset != nil {
+						binSection.Partial = &imap.SectionPartial{Offset: int64(*offset)}
+					}
+					section = binSection
 				}
 
 				if !dec.ExpectSP() {
