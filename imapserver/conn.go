@@ -50,6 +50,9 @@ type Conn struct {
 	// clientID is what the client told us about itself in its ID command
 	// (RFC 2971), for the session to log or to answer in kind.
 	clientID *imap.IDData
+
+	// afterResp runs once the current command's tagged response is written.
+	afterResp func()
 }
 
 func newConn(c net.Conn, server *Server) *Conn {
@@ -87,6 +90,24 @@ func (c *Conn) Bye(text string) error {
 		return respErr
 	}
 	return closeErr
+}
+
+// AfterResponse runs fn once the current command's tagged response is written,
+// for a handler that must answer before it acts, such as closing the connection.
+func (c *Conn) AfterResponse(fn func()) {
+	c.mutex.Lock()
+	c.afterResp = fn
+	c.mutex.Unlock()
+}
+
+func (c *Conn) runAfterResponse() {
+	c.mutex.Lock()
+	fn := c.afterResp
+	c.afterResp = nil
+	c.mutex.Unlock()
+	if fn != nil {
+		fn()
+	}
 }
 
 // enableCondStore marks CONDSTORE enabled, as a CONDSTORE enabling command
@@ -364,6 +385,7 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 		resp = internalServerErrorResp
 	} else {
 		if !sendOK {
+			c.runAfterResponse()
 			return nil
 		}
 		if err := c.poll(name); err != nil {
@@ -374,7 +396,9 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 			Text: fmt.Sprintf("%v completed", name),
 		}
 	}
-	return c.writeStatusResp(tag, resp)
+	werr := c.writeStatusResp(tag, resp)
+	c.runAfterResponse()
+	return werr
 }
 
 func (c *Conn) handleNoop(dec *imapwire.Decoder) error {
