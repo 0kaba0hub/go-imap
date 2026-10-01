@@ -105,6 +105,7 @@ When a tracked PR lands upstream:
 | yarilo original | (this branch HEAD) | `UpdateWriter.WriteMessageFlagsModSeq`: an unsolicited flag change carries the message's MODSEQ, required once CONDSTORE is enabled (RFC 7162 §3.2.4). `WriteMessageFlags` keeps its signature. Candidate for upstream ([yarilomail/yarilo#2046](https://github.com/yarilomail/yarilo/issues/2046)) |
 | yarilo original | (this branch HEAD) | CONDSTORE enabled implicitly by a CONDSTORE enabling command — `SELECT`/`EXAMINE (CONDSTORE)`, `STATUS (HIGHESTMODSEQ)`, `FETCH` with `MODSEQ` or `CHANGEDSINCE`, `STORE (UNCHANGEDSINCE)`, `SEARCH MODSEQ` — not only by `ENABLE` (RFC 7162 §3.1). Candidate for upstream ([yarilomail/yarilo#2046](https://github.com/yarilomail/yarilo/issues/2046)) |
 | yarilo original | (this branch HEAD) | `UpdateWriter.WriteStatusResp`: an untagged status response while polling, so a failed mailbox sync is reported and the command it follows still completes, instead of the Poll error closing the connection. Candidate for upstream ([yarilomail/yarilo#2058](https://github.com/yarilomail/yarilo/pull/2058)) |
+| yarilo original | (this branch HEAD) | `Conn.AfterResponse`: a command handler sets a function that runs once the command's tagged response is written, so a server can answer a command before acting on it, such as closing the connection after DELETE of the selected mailbox. Candidate for upstream ([yarilomail/yarilo#2084](https://github.com/yarilomail/yarilo/issues/2084)) |
 
 ## yarilo's go.mod replace
 
