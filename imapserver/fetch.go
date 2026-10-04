@@ -831,19 +831,26 @@ func writeBodyTypeMpart(enc *imapwire.Encoder, bs *imap.BodyStructureMultiPart, 
 	writeNString(enc, ext.Location)
 }
 
-// writeBodyFldParam writes params in the given order, then any others sorted.
+// writeBodyFldParam writes params in the given order and spelling (a name is
+// found as spelled or lowercased), then any others sorted.
 func writeBodyFldParam(enc *imapwire.Encoder, params map[string]string, order []string) {
 	if len(params) == 0 {
 		enc.NIL()
 		return
 	}
 
-	l := make([]string, 0, len(params))
+	names := make([]string, 0, len(params))
+	keys := make([]string, 0, len(params))
 	seen := make(map[string]bool, len(params))
-	for _, k := range order {
-		if _, ok := params[k]; ok && !seen[k] {
-			seen[k] = true
-			l = append(l, k)
+	for _, name := range order {
+		key := name
+		if _, ok := params[key]; !ok {
+			key = strings.ToLower(name)
+		}
+		if _, ok := params[key]; ok && !seen[key] {
+			seen[key] = true
+			names = append(names, name)
+			keys = append(keys, key)
 		}
 	}
 	var rest []string
@@ -853,12 +860,11 @@ func writeBodyFldParam(enc *imapwire.Encoder, params map[string]string, order []
 		}
 	}
 	sort.Strings(rest)
-	l = append(l, rest...)
+	names = append(names, rest...)
+	keys = append(keys, rest...)
 
-	enc.List(len(l), func(i int) {
-		k := l[i]
-		v := params[k]
-		enc.String(k).SP().String(v)
+	enc.List(len(names), func(i int) {
+		enc.String(names[i]).SP().String(params[keys[i]])
 	})
 }
 

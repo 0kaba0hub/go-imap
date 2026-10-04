@@ -13,8 +13,8 @@ import (
 	"github.com/emersion/go-imap/v2/imapserver/imapmemserver"
 )
 
-// Parameters keep the message's order; RFC 2231 continuations come after the
-// plain ones, merged. A sorted list was the writer's order, not the message's.
+// Parameters keep the message's order and spelling; RFC 2231 continuations come
+// after the plain ones, merged. A sorted list was the writer's, not the message's.
 func TestBodyStructureParamsKeepMessageOrder(t *testing.T) {
 	mem := imapmemserver.New()
 	u := imapmemserver.NewUser("u", "p")
@@ -67,13 +67,19 @@ func TestBodyStructureParamsKeepMessageOrder(t *testing.T) {
 		"Content-Type: text/plain; format=flowed; charset=utf-8\r\n" +
 		"Content-Disposition: attachment; size=3; filename*1=\"b.txt\"; filename*0=\"a\"\r\n" +
 		"\r\nabc\r\n"
+	// Names keep the message's spelling.
+	cased := "Subject: case\r\n" +
+		"Content-Type: text/plain; Charset=UTF-8; Format=Flowed\r\n" +
+		"\r\nabc\r\n"
 	run("a", "login u p")
 	run("b", "append INBOX {"+strconv.Itoa(len(msg))+"+}\r\n"+msg)
+	run("b2", "append INBOX {"+strconv.Itoa(len(cased))+"+}\r\n"+cased)
 	run("c", "select INBOX")
-	got := strings.Join(run("d", "fetch 1 (bodystructure)"), "\n")
+	got := strings.Join(run("d", "fetch 1:2 (bodystructure)"), "\n")
 	for _, want := range []string{
 		`("format" "flowed" "charset" "utf-8")`,
 		`("attachment" ("size" "3" "filename" "ab.txt"))`,
+		`("Charset" "UTF-8" "Format" "Flowed")`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("want %s in:\n%s", want, got)
