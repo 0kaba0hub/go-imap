@@ -167,8 +167,8 @@ type BodyStructureSinglePart struct {
 	Text          *BodyStructureText          // only for "text/*"
 	Extended      *BodyStructureSinglePartExt
 
-	// ParamOrder lists the Params names in the order the message gave them;
-	// names it leaves out are written after it, sorted.
+	// ParamOrder lists the Params names in the order and spelling the message
+	// gave them; names it leaves out are written after it, sorted.
 	ParamOrder []string
 }
 
@@ -279,8 +279,8 @@ type BodyStructureMultiPartExt struct {
 	Language    []string
 	Location    string
 
-	// ParamOrder lists the Params names in the order the message gave them;
-	// names it leaves out are written after it, sorted.
+	// ParamOrder lists the Params names in the order and spelling the message
+	// gave them; names it leaves out are written after it, sorted.
 	ParamOrder []string
 }
 
@@ -290,8 +290,8 @@ type BodyStructureDisposition struct {
 	Value  string
 	Params map[string]string
 
-	// ParamOrder lists the Params names in the order the message gave them;
-	// names it leaves out are written after it, sorted.
+	// ParamOrder lists the Params names in the order and spelling the message
+	// gave them; names it leaves out are written after it, sorted.
 	ParamOrder []string
 }
 
