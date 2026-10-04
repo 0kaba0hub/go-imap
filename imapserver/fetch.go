@@ -765,7 +765,7 @@ func writeBodyStructure(enc *imapwire.Encoder, bs imap.BodyStructure, extended b
 
 func writeBodyType1part(enc *imapwire.Encoder, bs *imap.BodyStructureSinglePart, extended bool) {
 	enc.String(bs.Type).SP().String(bs.Subtype).SP()
-	writeBodyFldParam(enc, bs.Params)
+	writeBodyFldParam(enc, bs.Params, bs.ParamOrder)
 	enc.SP()
 	writeNString(enc, bs.ID)
 	enc.SP()
@@ -822,7 +822,7 @@ func writeBodyTypeMpart(enc *imapwire.Encoder, bs *imap.BodyStructureMultiPart, 
 	ext := bs.Extended
 
 	enc.SP()
-	writeBodyFldParam(enc, ext.Params)
+	writeBodyFldParam(enc, ext.Params, ext.ParamOrder)
 	enc.SP()
 	writeBodyFldDsp(enc, ext.Disposition)
 	enc.SP()
@@ -831,17 +831,29 @@ func writeBodyTypeMpart(enc *imapwire.Encoder, bs *imap.BodyStructureMultiPart, 
 	writeNString(enc, ext.Location)
 }
 
-func writeBodyFldParam(enc *imapwire.Encoder, params map[string]string) {
+// writeBodyFldParam writes params in the given order, then any others sorted.
+func writeBodyFldParam(enc *imapwire.Encoder, params map[string]string, order []string) {
 	if len(params) == 0 {
 		enc.NIL()
 		return
 	}
 
-	var l []string
-	for k := range params {
-		l = append(l, k)
+	l := make([]string, 0, len(params))
+	seen := make(map[string]bool, len(params))
+	for _, k := range order {
+		if _, ok := params[k]; ok && !seen[k] {
+			seen[k] = true
+			l = append(l, k)
+		}
 	}
-	sort.Strings(l)
+	var rest []string
+	for k := range params {
+		if !seen[k] {
+			rest = append(rest, k)
+		}
+	}
+	sort.Strings(rest)
+	l = append(l, rest...)
 
 	enc.List(len(l), func(i int) {
 		k := l[i]
@@ -857,7 +869,7 @@ func writeBodyFldDsp(enc *imapwire.Encoder, disp *imap.BodyStructureDisposition)
 	}
 
 	enc.Special('(').String(disp.Value).SP()
-	writeBodyFldParam(enc, disp.Params)
+	writeBodyFldParam(enc, disp.Params, disp.ParamOrder)
 	enc.Special(')')
 }
 
