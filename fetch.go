@@ -166,6 +166,10 @@ type BodyStructureSinglePart struct {
 	MessageRFC822 *BodyStructureMessageRFC822 // only for "message/rfc822"
 	Text          *BodyStructureText          // only for "text/*"
 	Extended      *BodyStructureSinglePartExt
+
+	// ParamOrder lists the Params names in the order the message gave them;
+	// names it leaves out are written after it, sorted.
+	ParamOrder []string
 }
 
 func (bs *BodyStructureSinglePart) MediaType() string {
@@ -274,6 +278,10 @@ type BodyStructureMultiPartExt struct {
 	Disposition *BodyStructureDisposition
 	Language    []string
 	Location    string
+
+	// ParamOrder lists the Params names in the order the message gave them;
+	// names it leaves out are written after it, sorted.
+	ParamOrder []string
 }
 
 // BodyStructureDisposition describes the content disposition of a part
@@ -281,6 +289,10 @@ type BodyStructureMultiPartExt struct {
 type BodyStructureDisposition struct {
 	Value  string
 	Params map[string]string
+
+	// ParamOrder lists the Params names in the order the message gave them;
+	// names it leaves out are written after it, sorted.
+	ParamOrder []string
 }
 
 // BodyStructureWalkFunc is a function called for each body structure visited
