@@ -356,9 +356,9 @@ func getContentDisposition(header gomessage.Header) *imap.BodyStructureDispositi
 	}
 }
 
-// paramOrder gives the parameter names of a header value in message order,
-// with RFC 2231 continuations (name*0, name*1) after the plain ones, sorted by
-// name, as their merged value comes last. Names are lowercased like the map's.
+// paramOrder gives the parameter names of a header value in message order and
+// spelling, RFC 2231 continuations (name*0, name*1) after the plain ones,
+// sorted by name, as their merged value comes last.
 func paramOrder(v string) []string {
 	var plain, indexed []string
 	seen := make(map[string]bool)
@@ -367,26 +367,27 @@ func paramOrder(v string) []string {
 			continue // the type itself
 		}
 		key, _, _ := strings.Cut(seg, "=")
-		key = strings.ToLower(strings.TrimSpace(key))
+		key = strings.TrimSpace(key)
 		if key == "" {
 			continue
 		}
 		base, suffix, star := strings.Cut(key, "*")
+		lower := strings.ToLower(base)
 		if star && strings.TrimSuffix(suffix, "*") != "" {
-			if !seen["*"+base] {
-				seen["*"+base] = true
+			if !seen["*"+lower] {
+				seen["*"+lower] = true
 				indexed = append(indexed, base)
 			}
 			continue
 		}
-		if !seen[base] {
-			seen[base] = true
+		if !seen[lower] {
+			seen[lower] = true
 			plain = append(plain, base)
 		}
 	}
-	sort.Strings(indexed)
+	sort.Slice(indexed, func(i, j int) bool { return strings.ToLower(indexed[i]) < strings.ToLower(indexed[j]) })
 	for _, k := range indexed {
-		if !seen[k] {
+		if !seen[strings.ToLower(k)] {
 			plain = append(plain, k)
 		}
 	}
