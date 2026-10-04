@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"sort"
 	"strings"
 
 	gomessage "github.com/emersion/go-message"
@@ -302,6 +303,7 @@ func extractBodyStructure(rawHeader textproto.Header, r io.Reader) imap.BodyStru
 		}
 		bs.Extended = &imap.BodyStructureMultiPartExt{
 			Params:      typeParams,
+			ParamOrder:  paramOrder(header.Get("Content-Type")),
 			Disposition: getContentDisposition(header),
 			Language:    getContentLanguage(header),
 			Location:    header.Get("Content-Location"),
@@ -313,6 +315,7 @@ func extractBodyStructure(rawHeader textproto.Header, r io.Reader) imap.BodyStru
 			Type:        primaryType,
 			Subtype:     subType,
 			Params:      typeParams,
+			ParamOrder:  paramOrder(header.Get("Content-Type")),
 			ID:          header.Get("Content-Id"),
 			Description: header.Get("Content-Description"),
 			Encoding:    header.Get("Content-Transfer-Encoding"),
@@ -347,9 +350,66 @@ func getContentDisposition(header gomessage.Header) *imap.BodyStructureDispositi
 		return nil
 	}
 	return &imap.BodyStructureDisposition{
-		Value:  disp,
-		Params: dispParams,
+		Value:      disp,
+		Params:     dispParams,
+		ParamOrder: paramOrder(header.Get("Content-Disposition")),
 	}
+}
+
+// paramOrder gives the parameter names of a header value in message order and
+// spelling, RFC 2231 continuations (name*0, name*1) after the plain ones,
+// sorted by name, as their merged value comes last.
+func paramOrder(v string) []string {
+	var plain, indexed []string
+	seen := make(map[string]bool)
+	for i, seg := range splitParams(v) {
+		if i == 0 {
+			continue // the type itself
+		}
+		key, _, _ := strings.Cut(seg, "=")
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		base, suffix, star := strings.Cut(key, "*")
+		lower := strings.ToLower(base)
+		if star && strings.TrimSuffix(suffix, "*") != "" {
+			if !seen["*"+lower] {
+				seen["*"+lower] = true
+				indexed = append(indexed, base)
+			}
+			continue
+		}
+		if !seen[lower] {
+			seen[lower] = true
+			plain = append(plain, base)
+		}
+	}
+	sort.Slice(indexed, func(i, j int) bool { return strings.ToLower(indexed[i]) < strings.ToLower(indexed[j]) })
+	for _, k := range indexed {
+		if !seen[strings.ToLower(k)] {
+			plain = append(plain, k)
+		}
+	}
+	return plain
+}
+
+// splitParams splits a header value on the semicolons outside quoted strings.
+func splitParams(v string) []string {
+	var out []string
+	start, quoted := 0, false
+	for i := 0; i < len(v); i++ {
+		switch c := v[i]; {
+		case c == '\\' && quoted:
+			i++
+		case c == '"':
+			quoted = !quoted
+		case c == ';' && !quoted:
+			out = append(out, v[start:i])
+			start = i + 1
+		}
+	}
+	return append(out, v[start:])
 }
 
 func getContentLanguage(header gomessage.Header) []string {
