@@ -75,8 +75,11 @@ func (c *Conn) handleSearch(tag string, dec *imapwire.Decoder, numKind NumKind) 
 		return err
 	}
 
-	// If no return option is specified, ALL is assumed
-	if !options.ReturnMin && !options.ReturnMax && !options.ReturnAll && !options.ReturnCount {
+	// If no return option is specified, ALL is assumed; SAVE alone
+	// suppresses the result (RFC 5182 §2.1).
+	noResult := !options.ReturnMin && !options.ReturnMax && !options.ReturnAll && !options.ReturnCount
+	saveOnly := noResult && options.ReturnSave
+	if noResult && !saveOnly {
 		options.ReturnAll = true
 	}
 	// RFC 7162 §3.1.5: when a search references MODSEQ, the server
@@ -91,6 +94,9 @@ func (c *Conn) handleSearch(tag string, dec *imapwire.Decoder, numKind NumKind) 
 	data, err := c.session.Search(numKind, &criteria, &options)
 	if err != nil {
 		return err
+	}
+	if saveOnly {
+		return nil
 	}
 
 	if c.enabled.Has(imap.CapIMAP4rev2) || extended {
