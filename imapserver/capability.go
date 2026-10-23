@@ -119,6 +119,15 @@ func (c *Conn) availableCaps() []imap.Cap {
 		if _, ok := c.session.(SessionQuota); ok && available.Has(imap.CapQuota) {
 			caps = append(caps, imap.CapQuota)
 		}
+		// SORT and THREAD — RFC 5256
+		if _, ok := c.session.(SessionSort); ok && available.Has(imap.CapSort) {
+			caps = append(caps, imap.CapSort)
+		}
+		if _, ok := c.session.(SessionThread); ok {
+			for _, alg := range available.ThreadAlgorithms() {
+				caps = append(caps, imap.ThreadCap(alg))
+			}
+		}
 
 		if appendLimitSession, ok := c.session.(SessionAppendLimit); ok {
 			limit := appendLimitSession.AppendLimit()
