@@ -68,19 +68,29 @@ Automated by [`.github/workflows/sync-upstream.yml`](.github/workflows/sync-upst
   closed without merge), opens an issue labelled `upstream-pr-<number>`
   with the next-step checklist.
 
-Manual fallback when the workflow has to be bypassed:
+When the nightly rebase stops on a conflict, `yarilo-patches` stays where it
+was: only the sync deploy key can force-push it. Resolve the rebase on a branch
+and let [`.github/workflows/accept-rebase.yml`](.github/workflows/accept-rebase.yml)
+push it:
 
 ```sh
-git fetch upstream
-git checkout v2
-git merge --ff-only upstream/v2
-git push origin v2
-
-git checkout yarilo-patches
-git rebase v2          # re-applies the cherry-picks on the new base
-# resolve conflicts if upstream touched the same files
-git push --force-with-lease origin yarilo-patches
+git fetch origin
+git checkout -b rebase/yarilo-patches origin/yarilo-patches
+git rebase origin/v2   # resolve conflicts, keep every commit subject
+git push origin rebase/yarilo-patches
+gh workflow run accept-rebase.yml --ref yarilo-patches -f branch=rebase/yarilo-patches
 ```
+
+The workflow pushes the branch only if it sits on the `v2` tip, carries no
+merge commits, its commit subjects in order equal the non-merge subjects of
+the current `yarilo-patches`, and `go build` and `go test` pass. The job
+summary shows `git range-diff` of the old and new patch set.
+
+A resolution that changes the set itself (a patch dropped because upstream
+merged it, split or renamed) is declared first, by a PR to `yarilo-patches`
+that adds `.github/rebase-patch-set`: the first line is `v2 <full v2 sha>`,
+then one commit subject per line, in order, including the subject of that
+declaring commit. The workflow uses the list only while `v2` is at that sha.
 
 When a tracked PR lands upstream:
 

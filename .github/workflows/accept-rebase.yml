@@ -1,0 +1,163 @@
+name: Accept a resolved yarilo-patches rebase
+
+# When the nightly rebase stops on a conflict, a person resolves it on a
+# branch and dispatches this workflow. It force-pushes that branch over
+# yarilo-patches only if it is exactly the current v2 plus our known patch
+# set, and the tests pass:
+#   - v2 has moved past yarilo-patches (there is a rebase to accept);
+#   - the branch sits on the v2 tip and carries no merge commits;
+#   - its commit subjects, in order, equal the non-merge subjects of the
+#     current yarilo-patches, or the list declared in .github/rebase-patch-set
+#     for this v2 tip (see YARILO_PATCHES.md);
+#   - go build and go test pass on it.
+# The checks run without the deploy key; the push job runs no branch code.
+#
+# Dispatch from yarilo-patches only, so the protected definition is the one
+# that runs:  gh workflow run accept-rebase.yml --ref yarilo-patches -f branch=<name>
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch holding the resolved rebase
+        required: true
+        default: rebase/yarilo-patches
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify the proposed branch
+    if: github.ref == 'refs/heads/yarilo-patches'
+    runs-on: ubuntu-latest
+    outputs:
+      proposed: ${{ steps.check.outputs.proposed }}
+      current: ${{ steps.check.outputs.current }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: yarilo-patches
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the branch is v2 plus the known patch set
+        id: check
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+          case "$BRANCH" in
+            yarilo-patches|v2|"") echo "::error::refusing branch '$BRANCH'"; exit 1 ;;
+          esac
+          git fetch origin v2 "refs/heads/$BRANCH:refs/remotes/origin/proposed"
+          V2=$(git rev-parse origin/v2)
+          CUR=$(git rev-parse origin/yarilo-patches)
+          NEW=$(git rev-parse origin/proposed)
+          if git merge-base --is-ancestor "$V2" "$CUR"; then
+            echo "::error::yarilo-patches is already on v2 $V2: there is no rebase to accept"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$V2" "$NEW"; then
+            echo "::error::$BRANCH is not on the v2 tip $V2"
+            exit 1
+          fi
+          if [ -n "$(git rev-list --merges "$V2..$NEW")" ]; then
+            echo "::error::$BRANCH carries merge commits over v2"
+            exit 1
+          fi
+          OLD_BASE=$(git merge-base "$CUR" "$V2")
+          git log --reverse --no-merges --format=%s "$OLD_BASE..$CUR" > expected
+          if DECL=$(git show "$CUR:.github/rebase-patch-set" 2>/dev/null) &&
+             [ "$(printf '%s\n' "$DECL" | head -n1)" = "v2 $V2" ]; then
+            printf '%s\n' "$DECL" | tail -n +2 > expected
+            echo "::notice::using the patch set declared for v2 $V2"
+          fi
+          git log --reverse --format=%s "$V2..$NEW" > proposed
+          if ! diff -u expected proposed; then
+            echo "::error::the commit subjects of $BRANCH differ from the known patch set"
+            exit 1
+          fi
+          {
+            echo "### $BRANCH: $(wc -l < proposed) patches on v2 \`${V2:0:12}\`"
+            echo '```'
+            git range-diff "$OLD_BASE..$CUR" "$V2..$NEW" | cut -c1-120
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "proposed=$NEW" >> "$GITHUB_OUTPUT"
+          echo "current=$CUR" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: Build and test the proposed tree
+        env:
+          NEW: ${{ steps.check.outputs.proposed }}
+        run: |
+          git checkout --detach "$NEW"
+          go build ./...
+          go test ./...
+
+  push:
+    name: Force-push yarilo-patches
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: yarilo-patches
+          fetch-depth: 0
+          # Pushes go through the deploy key: the branch rulesets let only it
+          # past, and a personal repository cannot exempt GitHub Actions.
+          ssh-key: ${{ secrets.SYNC_DEPLOY_KEY }}
+
+      - name: Push the verified commit
+        env:
+          BRANCH: ${{ inputs.branch }}
+          NEW: ${{ needs.verify.outputs.proposed }}
+          CUR: ${{ needs.verify.outputs.current }}
+        run: |
+          set -euo pipefail
+          git fetch origin "refs/heads/$BRANCH:refs/remotes/origin/proposed"
+          if [ "$(git rev-parse origin/proposed)" != "$NEW" ]; then
+            echo "::error::$BRANCH moved after it was verified"
+            exit 1
+          fi
+          git push --force-with-lease="yarilo-patches:$CUR" origin "$NEW:refs/heads/yarilo-patches"
+          git push origin --delete "$BRANCH"
+          echo "::notice::yarilo-patches is now $NEW"
+
+      - name: Close the conflict issue
+        uses: actions/github-script@v8
+        env:
+          NEW: ${{ needs.verify.outputs.proposed }}
+        with:
+          script: |
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-conflict',
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Resolved: \`yarilo-patches\` is now \`${process.env.NEW}\`. Bump the yarilo \`go.mod\` replace to it.`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }

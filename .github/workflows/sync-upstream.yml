@@ -4,7 +4,8 @@ name: Sync upstream emersion/go-imap
 #   1. Fast-forwards `v2` (clean mirror) to upstream's `v2` tip daily.
 #   2. Rebases `yarilo-patches` (= v2 + cherry-pick of PR #756 + this workflow)
 #      onto the new `v2`. On clean rebase: force-push with lease.
-#      On conflict: open an issue tagged `upstream-conflict` so we notice.
+#      On conflict: open an issue tagged `upstream-conflict` so we notice;
+#      a person resolves it and accept-rebase.yml pushes the result.
 #   3. Polls every upstream PR in the watch matrix — when one lands, or is
 #      closed without merging, opens an issue with the next step. The matrix
 #      must list every cherry-pick in YARILO_PATCHES.md; one that is in the
@@ -150,13 +151,13 @@ jobs:
                 '',
                 `\`v2\` advanced from \`${oldSha}\` to \`${newSha}\` ([compare](${compareUrl})), but rebasing \`yarilo-patches\` on top produced conflicts.`,
                 '',
-                'Manual steps:',
+                'Resolve on a branch and let `accept-rebase.yml` push it (see YARILO_PATCHES.md):',
                 '```',
                 'git fetch origin',
-                'git checkout yarilo-patches',
-                'git rebase origin/v2',
-                '# resolve conflicts, then:',
-                'git push --force-with-lease origin yarilo-patches',
+                'git checkout -b rebase/yarilo-patches origin/yarilo-patches',
+                'git rebase origin/v2   # resolve conflicts, keep every commit subject',
+                'git push origin rebase/yarilo-patches',
+                'gh workflow run accept-rebase.yml --ref yarilo-patches -f branch=rebase/yarilo-patches',
                 '```',
                 '',
                 'After resolving, remember to bump the yarilo `go.mod` replace pseudo-version to the new tip.',
