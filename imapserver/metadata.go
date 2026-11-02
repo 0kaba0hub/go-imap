@@ -130,6 +130,12 @@ func (c *Conn) handleSetMetadata(dec *imapwire.Decoder) error {
 				Text: err.Error(),
 			}
 		}
+		if imap.IsMetadataScopeRoot(entry) {
+			return &imap.Error{
+				Type: imap.StatusResponseTypeBad,
+				Text: "entry name " + entry + " is a scope, not an entry",
+			}
+		}
 
 		var value *[]byte
 		var s string
