@@ -46,13 +46,18 @@ type MetadataResponseCodeData struct {
 
 // ValidateMetadataEntry validates a metadata entry name according to RFC 5464.
 // Entry names must:
-// - Start with /private/ or /shared/
+// - Be a scope root (/private, /shared) or start with /private/ or /shared/
 // - Not contain * or %
 // - Not contain consecutive slashes
 // - Not end with a slash (unless it's just the prefix)
 func ValidateMetadataEntry(entry string) error {
 	if entry == "" {
 		return fmt.Errorf("empty entry name")
+	}
+
+	// A scope root names the whole scope, which GETMETADATA with DEPTH reads
+	if IsMetadataScopeRoot(entry) {
+		return nil
 	}
 
 	// Must start with /private/ or /shared/
@@ -76,6 +81,17 @@ func ValidateMetadataEntry(entry string) error {
 	}
 
 	return nil
+}
+
+// IsMetadataScopeRoot reports whether entry names a whole scope rather than
+// one entry: /private or /shared, with or without the trailing slash. Such a
+// name can be read with DEPTH but holds no value of its own to set.
+func IsMetadataScopeRoot(entry string) bool {
+	switch entry {
+	case "/private", "/shared", "/private/", "/shared/":
+		return true
+	}
+	return false
 }
 
 // Helper functions to avoid importing strings package
