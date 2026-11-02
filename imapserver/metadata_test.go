@@ -2,6 +2,7 @@ package imapserver
 
 import (
 	"bufio"
+	"errors"
 	"strings"
 	"testing"
 
@@ -82,6 +83,21 @@ func TestValidateMetadataEntry(t *testing.T) {
 			name:    "base shared with slash - allowed",
 			entry:   "/shared/",
 			wantErr: false,
+		},
+		{
+			name:    "private scope root",
+			entry:   "/private",
+			wantErr: false,
+		},
+		{
+			name:    "shared scope root",
+			entry:   "/shared",
+			wantErr: false,
+		},
+		{
+			name:    "scope-like prefix",
+			entry:   "/privates",
+			wantErr: true,
 		},
 	}
 
@@ -232,6 +248,7 @@ func TestGetMetadataDepth_String_Invalid(t *testing.T) {
 type mockMetadataSession struct {
 	Session
 	getMetadataCalled bool
+	setMetadataCalled bool
 	lastMailbox       string
 	lastEntries       []string
 	lastOptions       *imap.GetMetadataOptions
@@ -251,6 +268,7 @@ func (s *mockMetadataSession) GetMetadata(mailbox string, entries []string, opti
 }
 
 func (s *mockMetadataSession) SetMetadata(mailbox string, entries map[string]*[]byte) error {
+	s.setMetadataCalled = true
 	return nil
 }
 
@@ -347,6 +365,20 @@ func TestHandleGetMetadata_Integration(t *testing.T) {
 			errContains: "Unknown GETMETADATA option",
 		},
 		{
+			name:        "whole private scope with DEPTH infinity",
+			input:       ` (DEPTH infinity) "INBOX" (/private)` + "\r\n",
+			wantOptions: true,
+			wantEntries: []string{"/private"},
+			wantDepth:   imap.GetMetadataDepthInfinity,
+		},
+		{
+			name:        "whole shared scope as a single entry",
+			input:       ` (DEPTH 1) "" /shared` + "\r\n",
+			wantOptions: true,
+			wantEntries: []string{"/shared"},
+			wantDepth:   imap.GetMetadataDepthOne,
+		},
+		{
 			name:        "invalid entry name - no slash prefix",
 			input:       ` "" (invalid)` + "\r\n",
 			wantErr:     true,
@@ -430,6 +462,31 @@ func TestHandleGetMetadata_Integration(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A scope root is read with DEPTH but never set: SETMETADATA on it is
+// refused before the session sees it, with or without the trailing slash.
+func TestHandleSetMetadata_ScopeRoot(t *testing.T) {
+	for _, entry := range []string{"/private", "/shared", "/private/", "/shared/"} {
+		session := &mockMetadataSession{}
+		conn := &Conn{session: session, state: imap.ConnStateAuthenticated}
+		dec := imapwire.NewDecoder(bufio.NewReader(strings.NewReader(` "INBOX" (`+entry+` "x")`+"\r\n")), 0)
+		err := conn.handleSetMetadata(dec)
+		var imapErr *imap.Error
+		if !errors.As(err, &imapErr) || imapErr.Type != imap.StatusResponseTypeBad {
+			t.Errorf("SETMETADATA %s = %v, want BAD", entry, err)
+		}
+		if session.setMetadataCalled {
+			t.Errorf("SETMETADATA %s reached the session", entry)
+		}
+	}
+
+	session := &mockMetadataSession{}
+	conn := &Conn{session: session, state: imap.ConnStateAuthenticated}
+	dec := imapwire.NewDecoder(bufio.NewReader(strings.NewReader(` "INBOX" (/private/comment "x")`+"\r\n")), 0)
+	if err := conn.handleSetMetadata(dec); err != nil || !session.setMetadataCalled {
+		t.Errorf("SETMETADATA /private/comment = %v, called %v; want it set", err, session.setMetadataCalled)
 	}
 }
 
